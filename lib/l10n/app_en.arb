@@ -1,0 +1,20 @@
+{
+  "@@locale": "en",
+  "appTitle": "AuraDeck",
+  "welcomeTitle": "Your collection deserves its own aura",
+  "welcomeSubtitle": "Organize, showcase, and share cards and collectibles in a display built for you.",
+  "selectLanguage": "Choose your language",
+  "languageSpanish": "Español",
+  "languageEnglish": "English",
+  "languagePortuguese": "Português",
+  "languageJapanese": "日本語",
+  "beginButton": "Get started",
+  "auraLogoDescription": "AuraDeck chromatic sigil",
+  "yourCollection": "Your binders",
+  "collectionSubtitle": "Every piece has a story. Give it a place.",
+  "binderSummary": "{grid} · {slots} slots",
+  "emptySlot": "Empty slot {number}",
+  "addBinderButton": "New binder",
+  "genericError": "We could not load your collection. Please try again.",
+  "retryButton": "Retry"
+}

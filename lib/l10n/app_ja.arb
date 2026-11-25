@@ -1,0 +1,20 @@
+{
+  "@@locale": "ja",
+  "appTitle": "AuraDeck",
+  "welcomeTitle": "コレクションにふさわしいオーラを",
+  "welcomeSubtitle": "カードやコレクションを、自分だけの展示棚で整理・公開・共有できます。",
+  "selectLanguage": "言語を選択",
+  "languageSpanish": "Español",
+  "languageEnglish": "English",
+  "languagePortuguese": "Português",
+  "languageJapanese": "日本語",
+  "beginButton": "はじめる",
+  "auraLogoDescription": "AuraDeck の虹色の紋章",
+  "yourCollection": "あなたのバインダー",
+  "collectionSubtitle": "すべての一品に物語を。ふさわしい場所を。",
+  "binderSummary": "{grid}・{slots} スロット",
+  "emptySlot": "空きスロット {number}",
+  "addBinderButton": "新しいバインダー",
+  "genericError": "コレクションを読み込めませんでした。もう一度お試しください。",
+  "retryButton": "再試行"
+}

@@ -1,0 +1,31 @@
+{
+  "@@locale": "es",
+  "appTitle": "AuraDeck",
+  "welcomeTitle": "Tu colección merece su propio aura",
+  "welcomeSubtitle": "Organiza, exhibe y comparte cartas y objetos de colección en una vitrina diseñada para ti.",
+  "selectLanguage": "Elige tu idioma",
+  "languageSpanish": "Español",
+  "languageEnglish": "English",
+  "languagePortuguese": "Português",
+  "languageJapanese": "日本語",
+  "beginButton": "Comenzar",
+  "auraLogoDescription": "Sigilo cromático de AuraDeck",
+  "yourCollection": "Tus carpetas",
+  "collectionSubtitle": "Cada pieza tiene una historia. Dale su lugar.",
+  "binderSummary": "{grid} · {slots} espacios",
+  "@binderSummary": {
+    "placeholders": {
+      "grid": {"type": "String"},
+      "slots": {"type": "int"}
+    }
+  },
+  "emptySlot": "Espacio vacío {number}",
+  "@emptySlot": {
+    "placeholders": {
+      "number": {"type": "int"}
+    }
+  },
+  "addBinderButton": "Nueva carpeta",
+  "genericError": "No pudimos cargar tu colección. Inténtalo de nuevo.",
+  "retryButton": "Reintentar"
+}
