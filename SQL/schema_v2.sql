@@ -22,23 +22,31 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 );
 
 CREATE TABLE IF NOT EXISTS public.binders (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id       UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  title         TEXT NOT NULL,
-  category      TEXT CHECK (category IN ('pokemon', 'magic', 'custom')) DEFAULT 'custom',
-  grid_format   TEXT CHECK (grid_format IN ('2x2', '3x3', '4x3')) DEFAULT '3x3',
-  max_slots     INTEGER DEFAULT 360,
-  is_free_tier  BOOLEAN DEFAULT FALSE,
-  theme         TEXT DEFAULT 'obsidian_gold',
-  is_public     BOOLEAN DEFAULT TRUE,
-  created_at    TIMESTAMPTZ DEFAULT NOW()
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                 UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  title                   TEXT NOT NULL,
+  family                  TEXT NOT NULL CHECK (family IN ('cards', 'objects')) DEFAULT 'cards',
+  collection_code         TEXT NOT NULL DEFAULT 'magic',
+  custom_collection_name  TEXT,
+  category                TEXT CHECK (category IN ('pokemon', 'magic', 'custom')) DEFAULT 'custom',
+  grid_format             TEXT CHECK (grid_format IN ('2x2', '3x3', '4x3')) DEFAULT '3x3',
+  max_slots               INTEGER DEFAULT 360,
+  is_free_tier            BOOLEAN DEFAULT FALSE,
+  theme                   TEXT DEFAULT 'obsidian_gold',
+  is_public               BOOLEAN DEFAULT TRUE,
+  created_at              TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT binders_custom_name_check CHECK (
+    collection_code NOT IN ('other_card', 'other_object')
+    OR (custom_collection_name IS NOT NULL AND btrim(custom_collection_name) <> '')
+  )
 );
 
 CREATE TABLE IF NOT EXISTS public.items (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   binder_id        UUID NOT NULL REFERENCES public.binders(id) ON DELETE CASCADE,
   user_id          UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  source_type      TEXT NOT NULL CHECK (source_type IN ('api_tcgdex', 'api_scryfall', 'user_upload')),
+  collection_code  TEXT NOT NULL DEFAULT 'magic',
+  source_type      TEXT NOT NULL CHECK (source_type IN ('api_scryfall', 'api_tcgdex', 'api_ygoprodeck', 'user_upload')),
   external_id      TEXT,
   name             TEXT NOT NULL,
   image_url        TEXT NOT NULL,
@@ -84,13 +92,13 @@ CREATE TABLE IF NOT EXISTS public.reports (
 -- ---------------------------------------------------------------------
 -- 2. ÍNDICES
 -- ---------------------------------------------------------------------
-CREATE INDEX IF NOT EXISTS idx_binders_user_id ON public.binders(user_id);
-CREATE INDEX IF NOT EXISTS idx_items_binder_id ON public.items(binder_id);
-CREATE INDEX IF NOT EXISTS idx_items_user_id   ON public.items(user_id);
-CREATE INDEX IF NOT EXISTS idx_decks_user_id   ON public.decks(user_id);
-CREATE INDEX IF NOT EXISTS idx_reports_item_id ON public.reports(item_id);
-CREATE INDEX IF NOT EXISTS idx_reports_status  ON public.reports(status);
--- Extra (FKs restantes)
+CREATE INDEX IF NOT EXISTS idx_binders_user_id         ON public.binders(user_id);
+CREATE INDEX IF NOT EXISTS idx_binders_collection_code ON public.binders(collection_code);
+CREATE INDEX IF NOT EXISTS idx_items_binder_id         ON public.items(binder_id);
+CREATE INDEX IF NOT EXISTS idx_items_user_id           ON public.items(user_id);
+CREATE INDEX IF NOT EXISTS idx_decks_user_id           ON public.decks(user_id);
+CREATE INDEX IF NOT EXISTS idx_reports_item_id         ON public.reports(item_id);
+CREATE INDEX IF NOT EXISTS idx_reports_status          ON public.reports(status);
 CREATE INDEX IF NOT EXISTS idx_purchase_history_user_id ON public.purchase_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_reporter_id      ON public.reports(reporter_id);
 
@@ -98,7 +106,6 @@ CREATE INDEX IF NOT EXISTS idx_reports_reporter_id      ON public.reports(report
 -- 3. FUNCIONES Y TRIGGERS (SECURITY DEFINER, search_path = public)
 -- ---------------------------------------------------------------------
 
--- Helper para RLS: ¿el usuario actual es admin? (evita recursión de RLS)
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -130,7 +137,6 @@ BEGIN
     NULLIF(split_part(COALESCE(NEW.email, ''), '@', 1), ''),
     'user'
   );
-  -- Sanitiza: minúsculas, solo [a-z0-9_.-]
   base_name := regexp_replace(lower(base_name), '[^a-z0-9_.-]', '', 'g');
   IF base_name = '' THEN
     base_name := 'user';
@@ -140,7 +146,6 @@ BEGIN
   final_name := base_name;
   IF EXISTS (SELECT 1 FROM public.profiles WHERE username = final_name) THEN
     final_name := base_name || '_' || substr(replace(NEW.id::text, '-', ''), 1, 6);
-    -- Si aún colisiona, usa el UUID completo
     IF EXISTS (SELECT 1 FROM public.profiles WHERE username = final_name) THEN
       final_name := base_name || '_' || replace(NEW.id::text, '-', '');
     END IF;
@@ -182,7 +187,6 @@ DECLARE
   v_is_admin   BOOLEAN;
   v_credits    INTEGER;
 BEGIN
-  -- Bloquea la fila del perfil para evitar condiciones de carrera
   SELECT is_pro, is_admin, extra_binder_credits
     INTO v_is_pro, v_is_admin, v_credits
     FROM public.profiles
@@ -191,6 +195,13 @@ BEGIN
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Perfil no encontrado para el usuario %', NEW.user_id;
+  END IF;
+
+  -- Sincroniza columna legacy category a partir de collection_code
+  IF NEW.collection_code IN ('pokemon', 'magic') THEN
+    NEW.category := NEW.collection_code;
+  ELSE
+    NEW.category := 'custom';
   END IF;
 
   SELECT COUNT(*) INTO binder_count FROM public.binders WHERE user_id = NEW.user_id;
@@ -203,9 +214,8 @@ BEGIN
     NEW.max_slots := COALESCE(NEW.max_slots, 360);
 
     IF COALESCE(v_is_pro, FALSE) OR COALESCE(v_is_admin, FALSE) THEN
-      NULL; -- permitido
+      NULL;
     ELSIF COALESCE(v_credits, 0) > 0 THEN
-      -- Permite que el trigger guard no revierta este descuento legítimo
       PERFORM set_config('app.bypass_profile_guard', 'on', TRUE);
       UPDATE public.profiles
          SET extra_binder_credits = extra_binder_credits - 1
@@ -225,7 +235,7 @@ CREATE TRIGGER before_insert_binder
   BEFORE INSERT ON public.binders
   FOR EACH ROW EXECUTE FUNCTION public.before_insert_binder();
 
--- 3.3 before_insert_item ---------------------------------------------
+-- 3.3 before_insert_item (capacidad + prohibición de mezcla de colecciones)
 CREATE OR REPLACE FUNCTION public.before_insert_item()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -233,11 +243,12 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  current_count     INTEGER;
-  binder_max_slots  INTEGER;
+  current_count           INTEGER;
+  binder_max_slots        INTEGER;
+  binder_collection_code  TEXT;
 BEGIN
-  -- Bloquea la carpeta para serializar inserciones concurrentes
-  SELECT max_slots INTO binder_max_slots
+  SELECT max_slots, collection_code
+    INTO binder_max_slots, binder_collection_code
     FROM public.binders
    WHERE id = NEW.binder_id
    FOR UPDATE;
@@ -246,10 +257,16 @@ BEGIN
     RAISE EXCEPTION 'Carpeta % no encontrada', NEW.binder_id;
   END IF;
 
-  SELECT COUNT(*) INTO current_count FROM public.items WHERE binder_id = NEW.binder_id;
+  IF NEW.collection_code IS DISTINCT FROM binder_collection_code THEN
+    RAISE EXCEPTION 'Colección incompatible: la carpeta solo admite % y se intentó guardar %.',
+      binder_collection_code, NEW.collection_code;
+  END IF;
 
-  IF current_count >= COALESCE(binder_max_slots, 360) THEN
-    RAISE EXCEPTION 'La carpeta está llena (% / % espacios).', current_count, COALESCE(binder_max_slots, 360);
+  IF TG_OP = 'INSERT' THEN
+    SELECT COUNT(*) INTO current_count FROM public.items WHERE binder_id = NEW.binder_id;
+    IF current_count >= COALESCE(binder_max_slots, 360) THEN
+      RAISE EXCEPTION 'La carpeta está llena (% / % espacios).', current_count, COALESCE(binder_max_slots, 360);
+    END IF;
   END IF;
 
   RETURN NEW;
@@ -258,12 +275,10 @@ $$;
 
 DROP TRIGGER IF EXISTS before_insert_item ON public.items;
 CREATE TRIGGER before_insert_item
-  BEFORE INSERT ON public.items
+  BEFORE INSERT OR UPDATE ON public.items
   FOR EACH ROW EXECUTE FUNCTION public.before_insert_item();
 
--- 3.4 Guard de seguridad: los usuarios finales no pueden otorgarse
---     is_pro / is_admin / créditos (RLS permite UPDATE del propio perfil).
---     service_role / postgres / dashboard (auth.uid() IS NULL) no se ven afectados.
+-- 3.4 Guard de columnas privilegiadas de profiles ---------------------
 CREATE OR REPLACE FUNCTION public.protect_profile_privileged_columns()
 RETURNS TRIGGER
 LANGUAGE plpgsql

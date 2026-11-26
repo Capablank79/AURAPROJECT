@@ -69,8 +69,16 @@ lib/
 - Respetar formatos `2x2`, `3x3` y `4x3`, el máximo de espacios y la unicidad de
   `position_index` dentro de cada carpeta.
 - La carpeta interactiva principal del MVP usa páginas de 9 bolsillos `3x3`.
-- Cada `item` pertenece al propietario de su `binder` y usa uno de estos orígenes:
-  `api_tcgdex`, `api_scryfall` o `user_upload`.
+- Cada carpeta define `family` (`cards` o `objects`), `collection_code` (con
+  `magic` como primera opción en cartas, seguida de `pokemon`, `yugioh`, otros
+  TCG famosos u `other_card`) y `custom_collection_name` cuando aplica.
+- Prohibido mezclar juegos/colecciones dentro de una misma carpeta: todo `item`
+  debe conservar el mismo `collection_code` que su `binder` (validado en cliente
+  y en el trigger `before_insert_item`).
+- Las funciones de búsqueda en catálogo y escáner solo se habilitan cuando la
+  colección dispone de API activa en `CollectionRegistry` (`api_scryfall`,
+  `api_tcgdex`, `api_ygoprodeck`); en caso contrario opera en modo foto manual
+  (`user_upload`).
 - No descargar ni guardar imágenes completas de TCGdex o Scryfall cuando baste
   conservar `external_id` y la URL oficial.
 - En objetos físicos, comprimir obligatoriamente a WebP con un máximo de 1080 px

@@ -3,6 +3,7 @@ class ItemModel {
     required this.id,
     required this.binderId,
     required this.userId,
+    required this.collectionCode,
     required this.sourceType,
     this.externalId,
     required this.name,
@@ -17,11 +18,19 @@ class ItemModel {
   });
 
   factory ItemModel.fromJson(Map<String, dynamic> json) {
+    final sourceType = json['source_type'] as String;
+    final inferredCode = switch (sourceType) {
+      'api_scryfall' => 'magic',
+      'api_tcgdex' => 'pokemon',
+      'api_ygoprodeck' => 'yugioh',
+      _ => 'figures',
+    };
     return ItemModel(
       id: json['id'] as String,
       binderId: json['binder_id'] as String,
       userId: json['user_id'] as String,
-      sourceType: json['source_type'] as String,
+      collectionCode: (json['collection_code'] as String?) ?? inferredCode,
+      sourceType: sourceType,
       externalId: json['external_id'] as String?,
       name: json['name'] as String,
       imageUrl: json['image_url'] as String,
@@ -40,6 +49,7 @@ class ItemModel {
   final String id;
   final String binderId;
   final String userId;
+  final String collectionCode;
   final String sourceType;
   final String? externalId;
   final String name;
@@ -52,10 +62,41 @@ class ItemModel {
   final String? notes;
   final DateTime createdAt;
 
+  ItemModel copyWith({
+    String? collectionCode,
+    String? name,
+    String? imageUrl,
+    bool? isFoil,
+    String? condition,
+    double? estimatedPrice,
+    int? positionIndex,
+    Map<String, dynamic>? metadata,
+    String? notes,
+  }) {
+    return ItemModel(
+      id: id,
+      binderId: binderId,
+      userId: userId,
+      collectionCode: collectionCode ?? this.collectionCode,
+      sourceType: sourceType,
+      externalId: externalId,
+      name: name ?? this.name,
+      imageUrl: imageUrl ?? this.imageUrl,
+      isFoil: isFoil ?? this.isFoil,
+      condition: condition ?? this.condition,
+      estimatedPrice: estimatedPrice ?? this.estimatedPrice,
+      positionIndex: positionIndex ?? this.positionIndex,
+      metadata: metadata ?? this.metadata,
+      notes: notes ?? this.notes,
+      createdAt: createdAt,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'binder_id': binderId,
     'user_id': userId,
+    'collection_code': collectionCode,
     'source_type': sourceType,
     'external_id': externalId,
     'name': name,

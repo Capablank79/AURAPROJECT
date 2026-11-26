@@ -8,6 +8,7 @@ class ProfileModel {
     required this.isPro,
     required this.isAdmin,
     required this.extraBinderCredits,
+    this.availableSlots = 0,
     this.revenuecatAppUserId,
     required this.createdAt,
   });
@@ -22,6 +23,7 @@ class ProfileModel {
       isPro: (json['is_pro'] as bool?) ?? false,
       isAdmin: (json['is_admin'] as bool?) ?? false,
       extraBinderCredits: (json['extra_binder_credits'] as num?)?.toInt() ?? 0,
+      availableSlots: (json['available_slots'] as num?)?.toInt() ?? 0,
       revenuecatAppUserId: json['revenuecat_app_user_id'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
@@ -35,8 +37,35 @@ class ProfileModel {
   final bool isPro;
   final bool isAdmin;
   final int extraBinderCredits;
+  final int availableSlots;
   final String? revenuecatAppUserId;
   final DateTime createdAt;
+
+  ProfileModel copyWith({
+    String? username,
+    String? displayName,
+    String? avatarUrl,
+    String? preferredLanguage,
+    bool? isPro,
+    bool? isAdmin,
+    int? extraBinderCredits,
+    int? availableSlots,
+    String? revenuecatAppUserId,
+  }) {
+    return ProfileModel(
+      id: id,
+      username: username ?? this.username,
+      displayName: displayName ?? this.displayName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      preferredLanguage: preferredLanguage ?? this.preferredLanguage,
+      isPro: isPro ?? this.isPro,
+      isAdmin: isAdmin ?? this.isAdmin,
+      extraBinderCredits: extraBinderCredits ?? this.extraBinderCredits,
+      availableSlots: availableSlots ?? this.availableSlots,
+      revenuecatAppUserId: revenuecatAppUserId ?? this.revenuecatAppUserId,
+      createdAt: createdAt,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
