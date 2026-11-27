@@ -354,5 +354,212 @@
       "slots": {"type": "int"}
     }
   },
-  "notEnoughBankSpaces": "No tienes suficientes espacios en tu Banco. Adquiere hojas en Ajustes."
+  "notEnoughBankSpaces": "No tienes suficientes espacios en tu Banco. Adquiere hojas en Ajustes.",
+  "navDecks": "Mazos",
+  "apiPolicyBannerTitle": "Política de Autenticidad Física",
+  "apiPolicyBannerBody": "Esta vitrina certifica cartas escaneadas con cámara. Si agregas desde el buscador API (modo prueba/referencia), quedará marcada públicamente como «API · Sin físico».",
+  "apiConfirmWarningTitle": "Inserción desde API sin escaneo físico",
+  "apiConfirmWarningBody": "Llevará el sello público «API · SIN FÍSICO» para indicar a quien vea tu vitrina que aún no ha sido escaneada físicamente. No podrá ponerse en venta ni cambio.",
+  "apiUnverifiedBadge": "API · SIN FÍSICO",
+  "apiReferenceWatermark": "REFERENCIA API · NO FÍSICA",
+  "physicalVerifiedBadge": "FÍSICA",
+  "physicalVerifiedBanner": "Posesión física verificada por escáner o fotografía.",
+  "apiUnverifiedBannerTitle": "Aviso público: Sin ejemplar físico verificado",
+  "apiUnverifiedBannerBody": "Agregada desde buscador API como referencia. No suma al patrimonio físico ni puede ofrecerse en cambio o venta.",
+  "verifyWithScannerButton": "📷 Ya la tengo: Verificar con escáner",
+  "verifiedSuccessMessage": "¡Pieza verificada como ejemplar físico escaneado!",
+  "trustBadgeFullPhysical": "🛡️ 100% Física Escaneada",
+  "trustBadgeHasApi": "☁️ {count} vía API sin verificar",
+  "@trustBadgeHasApi": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "filterAll": "Todas",
+  "filterPhysicalOnly": "📸 Solo Físicas",
+  "filterForTrade": "🔄 Cambio",
+  "filterForSale": "💲 Venta",
+  "tradeStatusLabel": "Estado comercial (Tradelist)",
+  "tradeStatusNone": "Solo colección",
+  "tradeStatusForTrade": "Disponible para cambio",
+  "tradeStatusForSale": "En venta",
+  "tradeStatusWishlistApi": "Referencia API (Sin físico)",
+  "tradeBadgeShort": "CAMBIO",
+  "saleBadgeShort": "VENTA",
+  "apiCannotTradeMessage": "Las referencias API sin escanear no pueden ponerse en venta ni cambio.",
+  "slabGraderLabel": "Certificadora (Slab)",
+  "slabNoneOption": "Sin gradear (Raw)",
+  "slabScoreLabel": "Nota",
+  "slabCertLabel": "N.º Cert.",
+  "purchaseCostLabel": "Costo de compra",
+  "roiLabel": "Plusvalía (ROI)",
+  "slabsCountLabel": "Slabs certificados",
+  "tradelistCountLabel": "En Tradelist",
+  "apiReferencesCountLabel": "Referencias API (no físicas)",
+  "gridFormatLabel": "Formato de cuadrícula",
+  "grid2x2Option": "2×2 Compacta (4 por hoja)",
+  "grid3x3Option": "3×3 Estándar (9 por hoja)",
+  "grid4x3ProOption": "4×3 Master XL (12 por hoja · Pro)",
+  "gridProRequiredMessage": "El formato panorámico 4×3 (12 por hoja) requiere Aura Pro.",
+  "pocketRangeIndicator": "Bolsillos #{start} – #{end}",
+  "@pocketRangeIndicator": {
+    "placeholders": {
+      "start": {"type": "int"},
+      "end": {"type": "int"}
+    }
+  },
+  "dragSwapHint": "Mantén presionada una pieza para arrastrarla a otro bolsillo",
+  "positionsSwappedMessage": "Posiciones actualizadas en la hoja.",
+  "qrPosterButton": "Póster QR Torneo",
+  "qrPosterTitle": "Tarjeta QR de Vitrina",
+  "qrPosterTopGems": "TOP PIEZAS FÍSICAS VERIFICADAS",
+  "shareQrLinkButton": "Compartir enlace QR",
+  "batchScannerButton": "Escáner por lote (Ráfaga)",
+  "batchScannerTitle": "Bandeja de Escaneo por Lote",
+  "batchScannerHint": "Captura varias cartas seguidas con ML Kit e insértalas juntas en bolsillos libres.",
+  "batchScanNextButton": "Capturar siguiente carta",
+  "batchGalleryButton": "Añadir foto desde galería",
+  "batchEmptyMessage": "Aún no hay cartas en la bandeja de lote.",
+  "batchCommitButton": "Insertar lote ({count})",
+  "@batchCommitButton": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "batchCommittedMessage": "Se insertaron {count} piezas físicas en bolsillos consecutivos.",
+  "@batchCommittedMessage": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "decksTitle": "Constructor de Mazos",
+  "decksSubtitle": "Cruza tus listas con tus vitrinas físicas verificadas.",
+  "newDeckButton": "Nuevo mazo",
+  "createDeckTitle": "Crear nuevo mazo",
+  "deckNameLabel": "Nombre del mazo",
+  "deckFormatLabel": "Formato (ej. Commander, Standard)",
+  "importExportDeckButton": "Importar / Exportar",
+  "deckIoHint": "Una carta por línea (ej. 1 Sol Ring o 4 Lightning Bolt)",
+  "applyDecklistButton": "Aplicar lista",
+  "copyDecklistButton": "Copiar lista",
+  "deckCopiedMessage": "Lista de mazo copiada al portapapeles.",
+  "ownedInShowcaseBadge": "✓ Físicas ({count}): {location}",
+  "@ownedInShowcaseBadge": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "location": {"type": "String"}
+    }
+  },
+  "missingFromShowcasesBadge": "✗ Faltante en vitrinas · Est. {price}",
+  "@missingFromShowcasesBadge": {
+    "placeholders": {
+      "price": {"type": "String"}
+    }
+  },
+  "ownedVsTotalLabel": "Físicas en vitrinas",
+  "missingCostLabel": "Costo faltantes",
+  "manaCurveTitle": "Curva de coste",
+  "addCardToDeckHint": "Añadir carta al mazo…",
+  "addedToDeckMessage": "«{name}» añadida a «{deck}».",
+  "@addedToDeckMessage": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "deck": {"type": "String"}
+    }
+  },
+  "selectDeckTitle": "Elegir mazo destino",
+  "noDecksYetMessage": "Aún no tienes mazos creados. Crea el primero para vincular tus cartas.",
+  "scannerZoneTitleLabel": "NOMBRE",
+  "scannerZoneSetLabel": "SET · N.º",
+  "scannerStreamActiveBadge": "⚡ STREAM ÓPTICO EN VIVO",
+  "scannerVariantSelectorLabel": "Ediciones detectadas ({count})",
+  "@scannerVariantSelectorLabel": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "scannerCenteringLabel": "Pre-Grading · Centrado {ratio} ({grade})",
+  "@scannerCenteringLabel": {
+    "placeholders": {
+      "ratio": {"type": "String"},
+      "grade": {"type": "String"}
+    }
+  },
+  "proofSnapshotSavedBadge": "📸 Evidencia física capturada",
+  "viewOfficialArtToggle": "Arte Oficial",
+  "viewProofPhotoToggle": "Foto Escaneada",
+  "trashBinTitle": "Papelera de Eliminación",
+  "trashBinSubtitle": "Las piezas eliminadas se guardan aquí por seguridad. Puedes restaurarlas a su bolsillo o vaciarlas definitivamente.",
+  "trashBinEmptyMessage": "La papelera está vacía.",
+  "trashBinCountBadge": "Papelera ({count})",
+  "@trashBinCountBadge": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "moveToTrashButton": "Enviar a la papelera",
+  "moveToTrashConfirm": "«{name}» saldrá del bolsillo y pasará a la Papelera de Eliminación (podrás restaurarla cuando quieras).",
+  "@moveToTrashConfirm": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "movedToTrashMessage": "«{name}» enviada a la papelera.",
+  "@movedToTrashMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "undoButton": "Deshacer",
+  "restoreFromTrashButton": "Restaurar",
+  "restoredFromTrashMessage": "«{name}» restaurada al bolsillo #{pocket}.",
+  "@restoredFromTrashMessage": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "pocket": {"type": "int"}
+    }
+  },
+  "permanentDeleteButton": "Eliminar definitivo",
+  "emptyTrashButton": "Vaciar papelera",
+  "emptyTrashConfirm": "¿Eliminar definitivamente las {count} piezas de la papelera? Esta acción no se puede deshacer.",
+  "@emptyTrashConfirm": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "trashDropZoneHint": "🗑️ Suelta aquí para enviar a la Papelera",
+  "trashOriginLabel": "De: {binder} · Bolsillo #{pocket}",
+  "@trashOriginLabel": {
+    "placeholders": {
+      "binder": {"type": "String"},
+      "pocket": {"type": "int"}
+    }
+  },
+  "deckGameTypeLabel": "Juego del mazo",
+  "deleteDeckButton": "Eliminar mazo",
+  "deckFilterAll": "Todas",
+  "deckFilterOwned": "✓ En Vitrinas",
+  "deckFilterMissing": "✗ Faltantes",
+  "pullListButton": "Lista de Extracción",
+  "pullListTitle": "Localizador Físico · Lista de Extracción",
+  "pullListSubtitle": "Ubicación exacta de cada carta física que debes sacar de tus vitrinas para armar este mazo:",
+  "pullListEmpty": "Aún no tienes cartas físicas de este mazo localizadas en tus vitrinas.",
+  "openInShowcaseTooltip": "Ir a la pieza en vitrina",
+  "editProfileButton": "Editar perfil",
+  "displayNameLabel": "Nombre visible",
+  "tradeContactLabel": "Contacto Tradelist (ej. @usuario / Discord)",
+  "tradeContactHint": "Visible en tus vitrinas públicas para acordar cambios o ventas",
+  "contactSellerButton": "Contactar ({handle})",
+  "@contactSellerButton": {
+    "placeholders": {
+      "handle": {"type": "String"}
+    }
+  },
+  "contactCopiedMessage": "Contacto «{handle}» copiado al portapapeles.",
+  "@contactCopiedMessage": {
+    "placeholders": {
+      "handle": {"type": "String"}
+    }
+  },
+  "costBasisLabel": "Costo adquisición"
 }

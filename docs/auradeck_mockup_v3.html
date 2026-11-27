@@ -1,0 +1,3266 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AuraDeck v3.0 — Bóveda Digital Interactiva, Tradelist & Deck Builder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+          },
+          colors: {
+            obsidianVoid: '#06070B',
+            smokedCharcoal: '#12141E',
+            charcoalRaised: '#191C2A',
+            solarGold: '#FFD700',
+            champagneLight: '#FFF2A6',
+            champagneDark: '#B8860B',
+            psychicMagenta: '#FF007A',
+            manaCyan: '#00E5FF',
+            emeraldAura: '#00FF87',
+            pureWhite: '#F8FAFC',
+            silverMuted: '#94A3B8',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background: radial-gradient(circle at 50% -10%, #15192B 0%, #06070B 65%);
+      background-color: #06070B;
+      color: #F8FAFC;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* Halo rotando únicamente el gradiente (RepaintBoundary friendly, sin recalcular blur) */
+    .aura-halo-wrap {
+      filter: blur(20px);
+      opacity: 0.48;
+      transform: translateZ(0);
+    }
+    .aura-halo-rotor {
+      background: conic-gradient(from 0deg, #00E5FF, #FF007A, #FFD700, #00FF87, #00E5FF);
+      animation: spinAura 16s linear infinite;
+      will-change: transform;
+    }
+    @keyframes spinAura {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Carta 3D + Doble Capa Holográfica (Linear Chromatic + Radial Specular Sparkle) */
+    .holo-stage {
+      perspective: 950px;
+    }
+    .holo-card {
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.14s ease-out, box-shadow 0.2s ease;
+      will-change: transform;
+    }
+    .holo-foil-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(
+        var(--holo-angle, 130deg),
+        rgba(0, 229, 255, 0) 12%,
+        rgba(0, 229, 255, 0.30) 30%,
+        rgba(255, 0, 122, 0.32) 47%,
+        rgba(255, 215, 0, 0.38) 63%,
+        rgba(0, 255, 135, 0.28) 78%,
+        rgba(255, 255, 255, 0) 92%
+      );
+      background-size: 220% 220%;
+      background-position: var(--holo-x, 50%) var(--holo-y, 50%);
+      mix-blend-mode: color-dodge;
+      opacity: 0.88;
+    }
+    .holo-sparkle-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: radial-gradient(
+        circle at var(--spark-x, 50%) var(--spark-y, 50%),
+        rgba(255, 255, 255, 0.48) 0%,
+        rgba(255, 215, 0, 0.16) 24%,
+        transparent 58%
+      );
+      mix-blend-mode: overlay;
+    }
+
+    /* Resaltado dorado cuando una carta recién agregada cae en su bolsillo */
+    .just-added-pulse {
+      animation: goldPulse 1.8s ease-out 2;
+    }
+    @keyframes goldPulse {
+      0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.85); }
+      70% { box-shadow: 0 0 0 14px rgba(255, 215, 0, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+    }
+
+    .pocket-drop-over {
+      border-color: #00E5FF !important;
+      box-shadow: 0 0 18px rgba(0, 229, 255, 0.45) !important;
+      transform: scale(1.02);
+    }
+
+    .fade-in {
+      animation: fadeIn 0.24s ease-out forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #06070B; }
+    ::-webkit-scrollbar-thumb { background: #1F2437; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #FFD700; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-solarGold selection:text-obsidianVoid">
+
+  <!-- TOAST FLOTANTE -->
+  <div id="toast-container" class="fixed top-4 right-4 z-[70] flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4 sm:px-0"></div>
+
+  <!-- ===================================================================== -->
+  <!-- PANTALLA 1: ONBOARDING OFICIAL (IDIOMA + DIVISA + AUTH)               -->
+  <!-- ===================================================================== -->
+  <section id="onboarding-screen" class="min-h-screen flex flex-col justify-between p-5 sm:p-8 relative overflow-hidden">
+    <header class="flex flex-wrap items-center justify-between gap-3 z-10 max-w-5xl w-full mx-auto">
+      <div class="flex items-center gap-2 text-xs text-silverMuted">
+        <span class="w-2 h-2 rounded-full bg-emeraldAura animate-pulse"></span>
+        <span>AuraDeck Architecture v3.0 • Frontend-First Prototype</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <select onchange="setCurrency(this.value)" id="onb-currency-select" class="bg-smokedCharcoal border border-solarGold/30 rounded-full px-3 py-1 text-xs text-pureWhite focus:outline-none">
+          <option value="USD">USD ($)</option>
+          <option value="CLP">CLP ($ Chile)</option>
+          <option value="EUR">EUR (€)</option>
+          <option value="MXN">MXN ($ México)</option>
+          <option value="JPY">JPY (¥)</option>
+        </select>
+        <div class="flex items-center gap-1 bg-smokedCharcoal border border-solarGold/30 rounded-full p-1">
+          <button onclick="setLanguage('es')" data-lang-btn="es" class="lang-btn px-2.5 py-1 rounded-full text-xs font-medium transition">ES</button>
+          <button onclick="setLanguage('en')" data-lang-btn="en" class="lang-btn px-2.5 py-1 rounded-full text-xs font-medium transition">EN</button>
+          <button onclick="setLanguage('pt')" data-lang-btn="pt" class="lang-btn px-2.5 py-1 rounded-full text-xs font-medium transition">PT</button>
+          <button onclick="setLanguage('ja')" data-lang-btn="ja" class="lang-btn px-2.5 py-1 rounded-full text-xs font-medium transition">日本語</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 flex flex-col items-center justify-center text-center max-w-md w-full mx-auto my-8 z-10 fade-in">
+      <!-- Sigilo Oficial con Cuernos Simétricos y Rombo Maestro -->
+      <div class="relative w-36 h-36 flex items-center justify-center mb-6">
+        <div class="aura-halo-wrap absolute inset-1 rounded-full">
+          <div class="aura-halo-rotor w-full h-full rounded-full"></div>
+        </div>
+        <div class="relative w-32 h-32 rounded-3xl bg-smokedCharcoal/95 border border-solarGold/40 flex items-center justify-center shadow-2xl">
+          <svg viewBox="0 0 120 128" class="w-24 h-24 drop-shadow-[0_0_12px_rgba(255,215,0,0.4)]" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="auraGoldGrad" x1="60" y1="6" x2="60" y2="122" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#FFF2A6"/>
+                <stop offset="50%" stop-color="#FFD700"/>
+                <stop offset="100%" stop-color="#B8860B"/>
+              </linearGradient>
+            </defs>
+            <!-- Cuernos curvos estilo AuraSigilPainter -->
+            <path d="M43 43 C19 46, 3 28, 10 7 C11 24, 26 36, 50 34" stroke="url(#auraGoldGrad)" stroke-width="3.4" stroke-linecap="round"/>
+            <path d="M77 43 C101 46, 117 28, 110 7 C109 24, 94 36, 70 34" stroke="url(#auraGoldGrad)" stroke-width="3.4" stroke-linecap="round"/>
+            <!-- Orejas geométricas -->
+            <polyline points="30,46 9,60 29,63" stroke="url(#auraGoldGrad)" stroke-width="2.2" stroke-linecap="round"/>
+            <polyline points="90,46 111,60 91,63" stroke="url(#auraGoldGrad)" stroke-width="2.2" stroke-linecap="round"/>
+            <!-- Rombo maestro exterior -->
+            <polygon points="60,16 103,69 60,121 17,69" stroke="url(#auraGoldGrad)" stroke-width="3.4"/>
+            <!-- Chevrones concéntricos -->
+            <polyline points="34,56 60,26 86,56" stroke="url(#auraGoldGrad)" stroke-width="2.2"/>
+            <polyline points="34,66 60,36 86,66" stroke="url(#auraGoldGrad)" stroke-width="2.2"/>
+            <!-- Rombo interior y lanza central -->
+            <polygon points="60,44 86,73 60,106 34,73" stroke="url(#auraGoldGrad)" stroke-width="2.3"/>
+            <polyline points="44,61 60,94 76,61" stroke="url(#auraGoldGrad)" stroke-width="2.2"/>
+            <line x1="60" y1="56" x2="60" y2="94" stroke="url(#auraGoldGrad)" stroke-width="2.2"/>
+          </svg>
+        </div>
+      </div>
+
+      <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-champagneLight via-solarGold to-champagneDark mb-2">
+        AuraDeck
+      </h1>
+      <p data-i18n="onb_subtitle" class="text-silverMuted text-sm sm:text-base mb-8 leading-relaxed">
+        Bóveda digital de lujo para coleccionistas de TCG y piezas físicas: brillo giroscópico, Tradelist QR, Slabs PSA/BGS y Constructor de Mazos conectado.
+      </p>
+
+      <div class="w-full space-y-3">
+        <button onclick="loginUser('Google')" class="w-full py-3.5 px-4 rounded-2xl bg-smokedCharcoal hover:bg-charcoalRaised border border-solarGold/60 hover:border-solarGold text-pureWhite font-semibold flex items-center justify-center gap-3 transition shadow-lg shadow-solarGold/10">
+          <span class="text-solarGold font-display font-bold text-base">G</span>
+          <span data-i18n="login_google">Continuar con Google</span>
+        </button>
+        <button onclick="loginUser('Apple')" class="w-full py-3.5 px-4 rounded-2xl bg-smokedCharcoal hover:bg-charcoalRaised border border-gray-800 hover:border-solarGold/50 text-pureWhite font-semibold flex items-center justify-center gap-3 transition">
+          <span></span>
+          <span data-i18n="login_apple">Continuar con Apple</span>
+        </button>
+        <button onclick="loginUser('Correo')" class="w-full py-2.5 px-4 rounded-xl text-sm text-silverMuted hover:text-solarGold transition">
+          <span data-i18n="login_email">Ingresar con Correo Electrónico</span>
+        </button>
+      </div>
+    </main>
+
+    <footer class="text-center text-xs text-silverMuted/70 z-10">
+      <span>15 Colecciones Anti-Mezcla • APIs Reales Scryfall / TCGdex / YGOPRODeck • WebP 1080px • Mazos & ROI</span>
+    </footer>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- PANTALLA 2: SHELL PRINCIPAL (4 TABS: VITRINAS, CATÁLOGO, MAZOS, PERFIL)-->
+  <!-- ===================================================================== -->
+  <div id="app-shell" class="hidden min-h-screen flex-col pb-24">
+    <header class="sticky top-0 z-30 bg-obsidianVoid/90 backdrop-blur-md border-b border-gray-800/80 px-4 py-3">
+      <div class="max-w-6xl mx-auto flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5 cursor-pointer" onclick="switchTab('binders')">
+          <div class="w-9 h-9 rounded-xl bg-smokedCharcoal border border-solarGold/45 flex items-center justify-center">
+            <svg viewBox="0 0 120 128" class="w-6 h-6" fill="none">
+              <polygon points="60,16 103,69 60,121 17,69" stroke="#FFD700" stroke-width="6"/>
+              <polygon points="60,44 86,73 60,106 34,73" stroke="#FFD700" stroke-width="5"/>
+            </svg>
+          </div>
+          <div>
+            <span class="font-display font-bold text-lg text-solarGold tracking-tight">AuraDeck</span>
+            <span id="header-plan-badge" class="ml-1.5 text-[10px] uppercase px-2 py-0.5 rounded-full bg-smokedCharcoal border border-gray-700 text-silverMuted font-semibold">Gratis</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="switchTab('profile')" class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-smokedCharcoal border border-gray-800 hover:border-solarGold/40 text-xs transition">
+            <span class="text-silverMuted" data-i18n="space_bank_short">Space Bank:</span>
+            <span id="header-slots-bank" class="font-bold text-emeraldAura">0 slots</span>
+            <span class="text-gray-700">|</span>
+            <span class="text-silverMuted" data-i18n="credits_short">Créditos:</span>
+            <span id="header-credits" class="font-bold text-solarGold">0</span>
+          </button>
+
+          <select id="header-currency-select" onchange="setCurrency(this.value)" class="bg-smokedCharcoal border border-gray-700 text-xs text-pureWhite rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-solarGold">
+            <option value="USD">USD</option>
+            <option value="CLP">CLP</option>
+            <option value="EUR">EUR</option>
+            <option value="MXN">MXN</option>
+            <option value="JPY">JPY</option>
+          </select>
+
+          <select id="header-lang-select" onchange="setLanguage(this.value)" class="bg-smokedCharcoal border border-gray-700 text-xs text-pureWhite rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-solarGold">
+            <option value="es">ES</option>
+            <option value="en">EN</option>
+            <option value="pt">PT</option>
+            <option value="ja">日本語</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 pt-5">
+
+      <!-- ================================================================= -->
+      <!-- TAB 1: MIS VITRINAS + GRILLAS 2x2 / 3x3 / 4x3 + DRAG & DROP       -->
+      <!-- ================================================================= -->
+      <section id="view-binders" class="fade-in">
+        <!-- Lista de Vitrinas -->
+        <div id="binders-list-subview">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 data-i18n="my_binders_title" class="font-display text-2xl font-bold text-pureWhite">Mis Vitrinas</h2>
+              <p data-i18n="my_binders_subtitle" class="text-xs sm:text-sm text-silverMuted">Álbumes dedicados anti-mezcla con grillas 2x2, 3x3 y 4x3 Pro XL, Slabs y estado Tradelist.</p>
+            </div>
+            <button onclick="openCreateBinderModal()" class="px-4 py-3 rounded-2xl bg-solarGold text-obsidianVoid font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-solarGold/20 hover:brightness-105 transition">
+              <span>+</span>
+              <span data-i18n="create_binder_btn">Nueva Vitrina</span>
+            </button>
+          </div>
+
+          <div id="binders-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+
+        <!-- Interior de Vitrina -->
+        <div id="binder-detail-subview" class="hidden">
+          <!-- Cabecera de Carpeta -->
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4 bg-smokedCharcoal border border-gray-800 p-4 rounded-2xl">
+            <div class="flex items-center gap-3">
+              <button onclick="closeBinderDetail()" class="p-2.5 rounded-xl bg-obsidianVoid hover:bg-charcoalRaised border border-gray-700 text-pureWhite transition" title="Volver">
+                ←
+              </button>
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h3 id="detail-binder-title" class="font-display font-bold text-lg sm:text-xl text-transparent bg-clip-text bg-gradient-to-r from-champagneLight to-solarGold">Vitrina</h3>
+                  <span id="detail-collection-pill" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-obsidianVoid border border-solarGold/40 text-solarGold">◆ Magic</span>
+                  <span id="detail-grid-pill" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-manaCyan/15 text-manaCyan border border-manaCyan/30">3x3</span>
+                </div>
+                <p id="detail-binder-stats" class="text-xs text-silverMuted mt-0.5">0 / 360 espacios</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              <!-- Selector en vivo de Grilla (Plan 1) -->
+              <select id="detail-grid-switcher" onchange="changeBinderGridFormat(this.value)" class="bg-obsidianVoid border border-gray-700 rounded-xl px-2.5 py-2 text-xs text-pureWhite focus:border-solarGold focus:outline-none" title="Cambiar formato de hoja">
+                <option value="2x2">Grilla 2x2 (4/hoja)</option>
+                <option value="3x3">Grilla 3x3 (9/hoja)</option>
+                <option value="4x3">Grilla 4x3 (12/hoja ★ Pro)</option>
+              </select>
+
+              <!-- Botón Póster QR para Torneo (Plan 2) -->
+              <button onclick="openQrPosterModal()" class="px-3 py-2 rounded-xl bg-obsidianVoid hover:bg-charcoalRaised border border-emeraldAura/45 text-emeraldAura text-xs font-semibold flex items-center gap-1.5 transition">
+                <span>▣</span>
+                <span data-i18n="qr_poster_btn">Póster QR Torneo</span>
+              </button>
+
+              <!-- Vista Pública -->
+              <button onclick="openPublicPreview()" class="px-3 py-2 rounded-xl bg-obsidianVoid hover:bg-charcoalRaised border border-manaCyan/45 text-manaCyan text-xs font-semibold flex items-center gap-1.5 transition">
+                <span>👁️</span>
+                <span data-i18n="public_preview_btn">Vista Pública</span>
+              </button>
+
+              <!-- Agregar pieza al primer hueco libre de la hoja -->
+              <button onclick="addInFirstFreeSlotOfCurrentPage()" class="px-3.5 py-2 rounded-xl bg-solarGold text-obsidianVoid text-xs font-extrabold flex items-center gap-1.5 shadow hover:brightness-105 transition">
+                <span>+</span>
+                <span data-i18n="add_piece_btn">Agregar Pieza</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Guía de Drag & Drop + Holografía -->
+          <div class="mb-4 px-3.5 py-2 rounded-xl bg-smokedCharcoal/70 border border-gray-800/90 flex flex-wrap items-center justify-between gap-2 text-xs text-silverMuted">
+            <span data-i18n="binder_ux_hint">✨ Pasa el cursor sobre cartas Foil para brillo doble capa • Arrastra cualquier carta a otro bolsillo para reordenar (Drag & Drop).</span>
+            <button onclick="openJumpSheetModal()" class="text-solarGold hover:underline font-semibold text-xs">
+              ⇥ <span data-i18n="jump_sheet_btn">Saltar a Hoja…</span>
+            </button>
+          </div>
+
+          <!-- Paginación de Hojas -->
+          <div class="flex items-center justify-between mb-3">
+            <button onclick="changeBinderPage(-1)" id="prev-page-btn" class="px-3.5 py-2 rounded-xl bg-smokedCharcoal border border-gray-700 text-xs font-semibold text-pureWhite hover:border-solarGold disabled:opacity-35 transition">
+              ◀ <span data-i18n="prev_page">Hoja Anterior</span>
+            </button>
+            <div class="text-center">
+              <span id="page-indicator" class="font-display text-sm font-bold text-solarGold">Hoja 1 de 40</span>
+              <span id="slot-range-indicator" class="block text-[11px] text-silverMuted">Bolsillos #1 – #9</span>
+            </div>
+            <button onclick="changeBinderPage(1)" id="next-page-btn" class="px-3.5 py-2 rounded-xl bg-smokedCharcoal border border-gray-700 text-xs font-semibold text-pureWhite hover:border-solarGold disabled:opacity-35 transition">
+              <span data-i18n="next_page">Hoja Siguiente</span> ▶
+            </button>
+          </div>
+
+          <!-- Contenedor Dinámico 2x2 / 3x3 / 4x3 -->
+          <div id="binder-pockets-grid" class="grid grid-cols-3 gap-3 sm:gap-4 bg-smokedCharcoal/70 border border-gray-800 p-3 sm:p-5 rounded-3xl shadow-2xl"></div>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 2: CATÁLOGO BLOQUEADO + API REAL + LOTE OCR + WEBP REAL       -->
+      <!-- ================================================================= -->
+      <section id="view-catalog" class="hidden fade-in">
+        <div class="mb-4">
+          <h2 data-i18n="catalog_title" class="font-display text-2xl font-bold text-pureWhite">Catálogo Oficial & Captura en Lote</h2>
+          <p data-i18n="catalog_subtitle" class="text-xs sm:text-sm text-silverMuted">Busca cartas en tiempo real (Scryfall, TCGdex, YGOPRODeck), confírmalas como en la app y agrégalas directo al bolsillo de tu vitrina.</p>
+        </div>
+
+        <!-- Banner Anti-Mezcla de Vitrina Destino (_LockedCollectionBanner) -->
+        <div class="bg-smokedCharcoal border border-solarGold/30 rounded-2xl p-3.5 mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="text-xs text-silverMuted" data-i18n="target_binder_label">Vitrina destino:</span>
+            <select id="catalog-target-binder" onchange="onCatalogTargetBinderChanged(this.value)" class="bg-obsidianVoid border border-gray-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-pureWhite font-semibold focus:border-solarGold focus:outline-none"></select>
+            <span id="catalog-locked-badge" class="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-obsidianVoid border border-solarGold/35 text-solarGold font-semibold">
+              🔒 Colección bloqueada: Magic
+            </span>
+          </div>
+          <div class="text-xs flex items-center gap-2">
+            <span class="text-silverMuted" data-i18n="target_slot_label">Bolsillo destino:</span>
+            <strong id="catalog-target-slot-display" class="text-manaCyan font-mono bg-obsidianVoid px-2.5 py-1 rounded-lg border border-manaCyan/30">#1</strong>
+            <button id="clear-slot-btn" onclick="clearSelectedSlot()" class="hidden text-[11px] text-silverMuted hover:text-pureWhite underline">Auto</button>
+          </div>
+        </div>
+
+        <!-- 3 Modos de Inserción (idéntico a CatalogScreen: Buscar API / Escáner Lote ML Kit / Foto WebP) -->
+        <div class="grid grid-cols-3 gap-2.5 mb-5">
+          <button onclick="setCatalogMode('search')" id="mode-btn-search" class="py-3 px-3 rounded-2xl border text-xs sm:text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1.5 transition">
+            <span>🔍</span>
+            <span data-i18n="mode_search">Buscar en API</span>
+          </button>
+          <button onclick="setCatalogMode('batch_ocr')" id="mode-btn-batch_ocr" class="py-3 px-3 rounded-2xl border text-xs sm:text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1.5 transition">
+            <span>📷</span>
+            <span data-i18n="mode_batch_ocr">Escáner por Lote</span>
+          </button>
+          <button onclick="setCatalogMode('photo_webp')" id="mode-btn-photo_webp" class="py-3 px-3 rounded-2xl border text-xs sm:text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-1.5 transition">
+            <span>🖼️</span>
+            <span data-i18n="mode_photo_webp">Foto Propia WebP</span>
+          </button>
+        </div>
+
+        <!-- MODO 1: BUSCADOR CONECTADO A APIS REALES + CONFIRMCARDDIALOG -->
+        <div id="catalog-panel-search" class="space-y-4">
+          <!-- Aviso de Política de Autenticidad Física -->
+          <div class="p-3.5 rounded-2xl bg-amber-950/25 border border-solarGold/45 flex items-start gap-3 text-xs">
+            <span class="text-lg leading-none mt-0.5">⚠️</span>
+            <div class="leading-relaxed">
+              <strong class="text-solarGold block">Política de Autenticidad Física AuraDeck (Modo Mockup / Wishlist)</strong>
+              <span class="text-silverMuted">En producción las vitrinas certifican únicamente piezas <strong>escaneadas con cámara (ML Kit)</strong> o fotografiadas. Si agregas una carta desde este buscador API, quedará marcada públicamente como <strong class="text-psychicMagenta">☁️ AGREGADA VÍA API (NO FÍSICA)</strong>, no sumará a tu patrimonio físico verificado ni podrá ponerse en venta/cambio hasta que escanees el ejemplar real.</span>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-2.5">
+            <div class="relative flex-1">
+              <input id="api-search-input" oninput="debouncedApiSearch()" type="text" placeholder="Escribe una carta real (ej. Atraxa, Black Lotus, Sheoldred, Charizard, Pikachu, Blue-Eyes)..." class="w-full bg-smokedCharcoal border border-gray-700 focus:border-solarGold rounded-2xl pl-4 pr-24 py-3.5 text-sm text-pureWhite placeholder-silverMuted/60 focus:outline-none">
+              <div id="api-search-spinner" class="hidden absolute right-3.5 top-3.5 text-xs text-solarGold font-semibold animate-pulse">Buscando API...</div>
+            </div>
+            <button onclick="executeApiSearchNow()" class="px-5 py-3.5 rounded-2xl bg-solarGold text-obsidianVoid font-extrabold text-xs sm:text-sm hover:brightness-105 transition shrink-0">
+              Buscar Ahora
+            </button>
+          </div>
+
+          <!-- Sugerencias rápidas según la colección bloqueada -->
+          <div id="quick-search-chips" class="flex items-center gap-2 flex-wrap text-xs"></div>
+
+          <!-- Estado de fuente API -->
+          <div id="api-status-banner" class="text-xs text-silverMuted flex items-center justify-between px-1"></div>
+
+          <!-- Resultados -->
+          <div id="api-results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5"></div>
+        </div>
+
+        <!-- MODO 2: ESCÁNER CONTINUO POR LOTE (RAPID BATCH ML KIT) - PLAN 4 -->
+        <div id="catalog-panel-batch_ocr" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div class="lg:col-span-5 bg-smokedCharcoal border border-gray-800 rounded-3xl p-5 flex flex-col items-center text-center">
+            <span class="text-[11px] uppercase font-bold tracking-wider text-manaCyan mb-2">Google ML Kit • Modo Ráfaga Offline</span>
+            <div class="relative w-52 aspect-[3/4] rounded-2xl bg-obsidianVoid border-2 border-dashed border-manaCyan/70 flex flex-col items-center justify-center p-4 mb-4 overflow-hidden shadow-[0_0_25px_rgba(0,229,255,0.12)]">
+              <div class="absolute inset-x-3 top-1/3 h-0.5 bg-manaCyan shadow-[0_0_12px_#00E5FF] animate-bounce"></div>
+              <span class="text-4xl mb-2">🃏</span>
+              <p class="text-xs text-silverMuted">Pasa tus cartas frente al lente sin salir de la cámara. Se apilarán en la cola derecha.</p>
+            </div>
+
+            <p class="text-xs text-silverMuted mb-2">Simular lectura óptica o escribir título detectado:</p>
+            <div id="batch-preset-buttons" class="flex flex-wrap justify-center gap-2 mb-3"></div>
+            <div class="flex w-full gap-2">
+              <input id="batch-manual-ocr" type="text" placeholder="Título detectado por OCR..." class="flex-1 bg-obsidianVoid border border-gray-700 rounded-xl px-3 py-2 text-xs text-pureWhite focus:border-manaCyan focus:outline-none">
+              <button onclick="scanSingleIntoBatchQueue()" class="px-3.5 py-2 rounded-xl bg-manaCyan text-obsidianVoid font-bold text-xs">+ Apilar</button>
+            </div>
+          </div>
+
+          <div class="lg:col-span-7 bg-smokedCharcoal border border-gray-800 rounded-3xl p-5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-display font-bold text-base text-pureWhite">Bandeja de Lote (<span id="batch-count">0</span> piezas listas)</h3>
+                <button onclick="clearBatchQueue()" class="text-xs text-silverMuted hover:text-psychicMagenta">Vaciar bandeja</button>
+              </div>
+              <div id="batch-queue-list" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+            </div>
+
+            <button id="commit-batch-btn" onclick="commitBatchToBinder()" disabled class="mt-4 w-full py-3.5 rounded-2xl bg-emeraldAura text-obsidianVoid font-extrabold text-sm disabled:opacity-30 hover:brightness-105 transition">
+              ✓ Insertar Lote Completo en Bolsillos Consecutivos
+            </button>
+          </div>
+        </div>
+
+        <!-- MODO 3: FOTO PROPIA CON COMPRESIÓN WEBP REAL 1080PX -->
+        <div id="catalog-panel-photo_webp" class="hidden bg-smokedCharcoal border border-gray-800 rounded-3xl p-5 sm:p-6 max-w-2xl mx-auto">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-display text-lg font-bold text-solarGold">Captura Física con Compresión WebP Real (Máx. 1080px)</h3>
+            <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-obsidianVoid border border-emeraldAura/40 text-emeraldAura">Cloudflare R2 Ready</span>
+          </div>
+          <p class="text-xs text-silverMuted mb-4">Sube cualquier foto desde tu equipo: el motor la redimensiona a máx. 1080px y la codifica realmente a WebP (80%) en tu navegador.</p>
+
+          <form onsubmit="submitCustomWebpItem(event)" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center p-4 rounded-2xl bg-obsidianVoid border border-dashed border-solarGold/40">
+              <div class="sm:col-span-4 flex justify-center">
+                <div id="webp-live-preview" class="w-28 aspect-[2.5/3.5] rounded-xl bg-smokedCharcoal border border-gray-700 overflow-hidden flex items-center justify-center text-xs text-silverMuted text-center p-2">
+                  Vista previa WebP
+                </div>
+              </div>
+              <div class="sm:col-span-8 space-y-3 text-center sm:text-left">
+                <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-smokedCharcoal hover:bg-charcoalRaised border border-solarGold/50 text-solarGold text-xs font-bold transition">
+                  <span>📸 Seleccionar Imagen Real (JPG / PNG)</span>
+                  <input type="file" accept="image/*" onchange="processRealWebpCompression(event)" class="hidden">
+                </label>
+                <div class="grid grid-cols-3 gap-2 text-xs bg-smokedCharcoal p-2.5 rounded-xl border border-gray-800">
+                  <div>
+                    <span class="text-silverMuted block text-[10px]">Original</span>
+                    <strong id="webp-orig-kb" class="font-mono text-pureWhite">—</strong>
+                  </div>
+                  <div>
+                    <span class="text-silverMuted block text-[10px]">WebP ≤1080px</span>
+                    <strong id="webp-final-kb" class="font-mono text-emeraldAura">—</strong>
+                  </div>
+                  <div>
+                    <span class="text-silverMuted block text-[10px]">Ahorro</span>
+                    <strong id="webp-saving-pct" class="font-mono text-solarGold">—</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-silverMuted mb-1">Nombre de la pieza *</label>
+                <input id="custom-name" required type="text" placeholder="Ej. Charizard Base Set / Funko / Cómic #1" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-pureWhite focus:border-solarGold focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-xs text-silverMuted mb-1">Subtipo / Edición</label>
+                <input id="custom-subtype" type="text" value="Edición Coleccionista" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-pureWhite focus:border-solarGold focus:outline-none">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label class="block text-xs text-silverMuted mb-1">Condición</label>
+                <select id="custom-condition" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-2.5 py-2.5 text-xs text-pureWhite">
+                  <option value="NM">NM (Near Mint)</option>
+                  <option value="LP">LP (Lightly Played)</option>
+                  <option value="SEALED">Sellado / Mint</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-silverMuted mb-1">Costo Compra (USD)</label>
+                <input id="custom-cost" type="number" step="0.01" value="45.00" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-2.5 py-2.5 text-xs text-pureWhite">
+              </div>
+              <div>
+                <label class="block text-xs text-silverMuted mb-1">Valor Actual (USD)</label>
+                <input id="custom-price" type="number" step="0.01" value="95.00" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-2.5 py-2.5 text-xs text-pureWhite">
+              </div>
+              <div>
+                <label class="block text-xs text-silverMuted mb-1">Estado Tradelist</label>
+                <select id="custom-trade" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-2.5 py-2.5 text-xs text-pureWhite">
+                  <option value="none">Solo Colección</option>
+                  <option value="for_trade">Para Cambio</option>
+                  <option value="for_sale">En Venta</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Cápsula Grading Slab (Plan 5) -->
+            <div class="grid grid-cols-3 gap-3 bg-obsidianVoid p-3 rounded-xl border border-gray-800">
+              <div>
+                <label class="block text-[11px] text-silverMuted mb-1">Certificadora (Slab)</label>
+                <select id="custom-grader" class="w-full bg-smokedCharcoal border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-pureWhite">
+                  <option value="">Sin Gradear (Raw)</option>
+                  <option value="PSA">PSA</option>
+                  <option value="BGS">BGS (Beckett)</option>
+                  <option value="CGC">CGC</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] text-silverMuted mb-1">Nota</label>
+                <input id="custom-grade-score" type="text" placeholder="10 / 9.5" value="10" class="w-full bg-smokedCharcoal border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-pureWhite">
+              </div>
+              <div class="flex items-end pb-1">
+                <label class="inline-flex items-center gap-2 text-xs text-solarGold cursor-pointer">
+                  <input id="custom-foil" type="checkbox" checked class="accent-solarGold w-4 h-4">
+                  <span>✨ Brillo Foil</span>
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" class="w-full py-3.5 rounded-2xl bg-solarGold text-obsidianVoid font-extrabold text-sm shadow-lg hover:brightness-105 transition">
+              Guardar Pieza en Bolsillo Destino
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 3: CONSTRUCTOR DE MAZOS CONECTADO AL INVENTARIO (PLAN 3)      -->
+      <!-- ================================================================= -->
+      <section id="view-decks" class="hidden fade-in space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 data-i18n="decks_title" class="font-display text-2xl font-bold text-pureWhite">Constructor de Mazos & Localizador Físico</h2>
+            <p data-i18n="decks_subtitle" class="text-xs sm:text-sm text-silverMuted">Cruza tus listas competitivas con tus vitrinas reales para saber en qué carpeta y bolsillo exacto está cada carta o cuánto cuesta completar las faltantes.</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="openImportDeckModal()" class="px-3.5 py-2.5 rounded-xl bg-smokedCharcoal border border-manaCyan/40 text-manaCyan text-xs font-bold hover:bg-charcoalRaised transition">
+              📥 Importar / Exportar Lista
+            </button>
+            <button onclick="createNewDeckPrompt()" class="px-4 py-2.5 rounded-xl bg-solarGold text-obsidianVoid text-xs font-extrabold hover:brightness-105 transition">
+              + Nuevo Mazo
+            </button>
+          </div>
+        </div>
+
+        <!-- Selector de Mazo Activo -->
+        <div id="decks-selector-bar" class="flex gap-2.5 overflow-x-auto pb-1"></div>
+
+        <!-- Cuerpo del Mazo Activo -->
+        <div id="active-deck-workspace" class="grid grid-cols-1 lg:grid-cols-12 gap-5"></div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 4: PERFIL, PLUSVALÍA ROI, SPACE BANK, TIENDA & MODERACIÓN     -->
+      <!-- ================================================================= -->
+      <section id="view-profile" class="hidden fade-in space-y-6">
+        <div class="bg-smokedCharcoal border border-gray-800 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-solarGold/30 to-manaCyan/20 border border-solarGold flex items-center justify-center text-2xl font-display font-bold text-solarGold">
+              CA
+            </div>
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h2 class="font-display text-xl font-bold text-pureWhite">Coleccionista Aura</h2>
+                <span id="profile-pro-badge" class="text-xs px-2.5 py-0.5 rounded-full bg-obsidianVoid text-silverMuted border border-gray-700 font-semibold">Plan Gratuito</span>
+              </div>
+              <p class="text-xs text-silverMuted">@coleccionista_aura • Supabase sa-east-1 • Cloudflare R2</p>
+              <div class="mt-2 flex flex-wrap items-center gap-4 text-xs">
+                <label class="inline-flex items-center gap-1.5 text-silverMuted cursor-pointer">
+                  <input id="admin-mode-toggle" type="checkbox" onchange="toggleAdminMode(this.checked)" class="accent-solarGold">
+                  <span>Modo Super Admin (is_admin)</span>
+                </label>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-silverMuted">Contacto Tradelist:</span>
+                  <input id="profile-contact-handle" onchange="updateContactHandle(this.value)" value="@aura_trades_cl" class="bg-obsidianVoid border border-gray-700 rounded-lg px-2 py-0.5 text-xs text-manaCyan w-36 focus:border-solarGold focus:outline-none">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button onclick="logoutUser()" class="px-4 py-2 rounded-xl bg-obsidianVoid hover:bg-red-950/40 border border-gray-700 hover:border-psychicMagenta/50 text-xs text-silverMuted hover:text-psychicMagenta transition">
+            Cerrar Sesión
+          </button>
+        </div>
+
+        <!-- Panel de Valorización & Plusvalía ROI (Plan 5) -->
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+          <div class="bg-smokedCharcoal border border-solarGold/40 rounded-2xl p-4">
+            <span class="text-xs text-silverMuted block">Valor Mercado Actual</span>
+            <strong id="stat-market-value" class="font-display text-xl font-bold text-solarGold mt-1 block">$0</strong>
+          </div>
+          <div class="bg-smokedCharcoal border border-gray-800 rounded-2xl p-4">
+            <span class="text-xs text-silverMuted block">Costo Adquisición</span>
+            <strong id="stat-cost-basis" class="font-display text-xl font-bold text-pureWhite mt-1 block">$0</strong>
+          </div>
+          <div class="bg-smokedCharcoal border border-emeraldAura/35 rounded-2xl p-4">
+            <span class="text-xs text-silverMuted block">Plusvalía Neta (ROI)</span>
+            <strong id="stat-net-roi" class="font-display text-xl font-bold text-emeraldAura mt-1 block">+$0 (+0%)</strong>
+          </div>
+          <div class="bg-smokedCharcoal border border-gray-800 rounded-2xl p-4">
+            <span class="text-xs text-silverMuted block">Slabs Certificados</span>
+            <strong id="stat-slabs-count" class="font-display text-xl font-bold text-manaCyan mt-1 block">0</strong>
+          </div>
+          <div class="col-span-2 lg:col-span-1 bg-smokedCharcoal border border-gray-800 rounded-2xl p-4">
+            <span class="text-xs text-silverMuted block">En Tradelist</span>
+            <strong id="stat-trade-count" class="font-display text-xl font-bold text-psychicMagenta mt-1 block">0</strong>
+          </div>
+        </div>
+
+        <!-- Space Bank + Tienda Granular RevenueCat -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div class="lg:col-span-5 bg-smokedCharcoal border border-gray-800 rounded-3xl p-5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-manaCyan text-lg">❖</span>
+                <h3 class="font-display font-bold text-base text-pureWhite">Space Bank (Banco de Espacios)</h3>
+              </div>
+              <p class="text-xs text-silverMuted leading-relaxed mb-4">
+                Los bolsillos de hojas compradas o liberadas al completar vitrinas se guardan en tu Space Bank para expandir cualquier carpeta.
+              </p>
+              <div class="grid grid-cols-2 gap-3 bg-obsidianVoid p-3.5 rounded-2xl border border-gray-800 text-xs">
+                <div>
+                  <span class="text-silverMuted block">Espacios Asignados</span>
+                  <strong id="bank-allocated" class="font-display text-lg text-pureWhite">360</strong>
+                </div>
+                <div>
+                  <span class="text-silverMuted block">Disponibles en Banco</span>
+                  <strong id="bank-available" class="font-display text-lg text-emeraldAura">0</strong>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between text-xs">
+              <span class="text-silverMuted">Créditos de Vitrina Completa:</span>
+              <strong id="bank-credits" class="text-solarGold font-bold text-sm">0 créditos</strong>
+            </div>
+          </div>
+
+          <div class="lg:col-span-7 bg-smokedCharcoal border border-gray-800 rounded-3xl p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-display font-bold text-base text-solarGold">Tienda de Espacios & Aura Pro (RevenueCat)</h3>
+              <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-obsidianVoid border border-gray-700 text-silverMuted">MockBillingService</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <button onclick="buyStoreProduct('sheet1')" class="p-3.5 rounded-2xl bg-obsidianVoid hover:border-manaCyan border border-gray-800 text-left transition">
+                <span class="text-manaCyan font-bold block">+1 Hoja Suelta (9 espacios)</span>
+                <span class="text-silverMuted block mt-0.5">Suma 9 bolsillos a tu Space Bank</span>
+                <strong class="text-pureWhite mt-2 inline-block">USD $0.99</strong>
+              </button>
+              <button onclick="buyStoreProduct('sheet10')" class="p-3.5 rounded-2xl bg-obsidianVoid hover:border-manaCyan border border-gray-800 text-left transition">
+                <span class="text-manaCyan font-bold block">Pack 10 Hojas (90 espacios)</span>
+                <span class="text-silverMuted block mt-0.5">Ideal para expansiones cortas</span>
+                <strong class="text-pureWhite mt-2 inline-block">USD $1.99</strong>
+              </button>
+              <button onclick="buyStoreProduct('binder1')" class="p-3.5 rounded-2xl bg-obsidianVoid hover:border-solarGold border border-gray-800 text-left transition">
+                <span class="text-solarGold font-bold block">+1 Vitrina Estándar (360 slots)</span>
+                <span class="text-silverMuted block mt-0.5">Pago único permanente (+1 crédito)</span>
+                <strong class="text-pureWhite mt-2 inline-block">USD $2.99</strong>
+              </button>
+              <button onclick="buyStoreProduct('pro')" class="p-3.5 rounded-2xl bg-gradient-to-br from-obsidianVoid via-smokedCharcoal to-amber-950/30 border border-solarGold/70 text-left transition">
+                <span class="text-solarGold font-extrabold block">★ Aura Pro (Ilimitado + Grilla 4x3)</span>
+                <span class="text-silverMuted block mt-0.5">Vitrinas 480 XL, Aura AI ilimitado</span>
+                <strong id="pro-btn-label" class="text-solarGold mt-2 inline-block">Activar USD $4.99/mes</strong>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Moderación UGC Admin -->
+        <div id="admin-moderation-panel" class="hidden bg-smokedCharcoal border border-psychicMagenta/40 rounded-3xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-display text-base font-bold text-psychicMagenta">🛡️ Panel de Moderación UGC (Tabla reports)</h3>
+            <span class="text-xs text-silverMuted">Revisión Admin (pending / reviewed / dismissed)</span>
+          </div>
+          <div id="reports-list" class="space-y-2 text-xs"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- BARRA DE NAVEGACIÓN INFERIOR OFICIAL (4 TABS DE ALTO VALOR) -->
+    <nav class="fixed bottom-0 inset-x-0 z-30 bg-obsidianVoid/95 backdrop-blur-lg border-t border-gray-800 px-2 py-2">
+      <div class="max-w-xl mx-auto grid grid-cols-4 gap-1.5">
+        <button onclick="switchTab('binders')" data-nav-tab="binders" class="nav-tab-btn flex flex-col items-center justify-center py-2 rounded-2xl text-xs font-medium transition">
+          <span class="text-base mb-0.5">🗂️</span>
+          <span data-i18n="nav_binders">Vitrinas</span>
+        </button>
+        <button onclick="switchTab('catalog')" data-nav-tab="catalog" class="nav-tab-btn flex flex-col items-center justify-center py-2 rounded-2xl text-xs font-medium transition">
+          <span class="text-base mb-0.5">🔎</span>
+          <span data-i18n="nav_catalog">Catálogo</span>
+        </button>
+        <button onclick="switchTab('decks')" data-nav-tab="decks" class="nav-tab-btn flex flex-col items-center justify-center py-2 rounded-2xl text-xs font-medium transition">
+          <span class="text-base mb-0.5">⚔️</span>
+          <span data-i18n="nav_decks">Mazos</span>
+        </button>
+        <button onclick="switchTab('profile')" data-nav-tab="profile" class="nav-tab-btn flex flex-col items-center justify-center py-2 rounded-2xl text-xs font-medium transition">
+          <span class="text-base mb-0.5">👤</span>
+          <span data-i18n="nav_profile">Perfil</span>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL A: CONFIRMCARDDIALOG (EL FLUJO EXACTO DE AGREGAR A LA VITRINA)  -->
+  <!-- ===================================================================== -->
+  <div id="confirm-card-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-smokedCharcoal border border-solarGold/50 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl my-auto fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <span class="text-[10px] uppercase tracking-wider text-manaCyan font-bold">ConfirmCardDialog • Inserción Directa</span>
+          <h3 class="font-display text-lg font-bold text-pureWhite">Confirmar y Guardar en Vitrina</h3>
+        </div>
+        <button onclick="closeConfirmCardModal()" class="w-8 h-8 rounded-full bg-obsidianVoid border border-gray-700 text-silverMuted hover:text-pureWhite">✕</button>
+      </div>
+
+      <!-- Aviso explícito antes de insertar desde API -->
+      <div class="p-3 rounded-2xl bg-psychicMagenta/10 border border-psychicMagenta/45 mb-3.5 text-xs space-y-1">
+        <div class="flex items-center gap-1.5 font-extrabold text-psychicMagenta">
+          <span>☁️</span>
+          <span>Aviso: Inserción desde API sin escaneo físico</span>
+        </div>
+        <p class="text-silverMuted leading-relaxed text-[11px]">
+          Esta carta llevará el sello público <strong>"API • SIN FÍSICO"</strong> en tu vitrina para indicar con transparencia a los visitantes que aún no ha sido escaneada físicamente por cámara. No podrá listarse para venta ni cambio hasta verificarla.
+        </p>
+      </div>
+
+      <!-- Resumen de la carta encontrada -->
+      <div class="flex gap-3.5 bg-obsidianVoid p-3.5 rounded-2xl border border-gray-800 mb-4">
+        <div id="confirm-card-thumb" class="w-16 h-24 rounded-lg overflow-hidden bg-smokedCharcoal border border-gray-700 shrink-0"></div>
+        <div class="flex-1 min-w-0">
+          <h4 id="confirm-card-name" class="font-bold text-sm text-pureWhite truncate">Nombre</h4>
+          <p id="confirm-card-expansion" class="text-xs text-solarGold truncate">Expansión</p>
+          <p id="confirm-card-dest" class="text-[11px] text-manaCyan mt-1 font-mono">Destino: Vitrina • Bolsillo #1</p>
+          <p id="confirm-card-oracle" class="text-[11px] text-silverMuted mt-1.5 line-clamp-2"></p>
+        </div>
+      </div>
+
+      <div class="space-y-3.5 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-silverMuted mb-1">Condición física</label>
+            <select id="confirm-condition" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-3 py-2.5 text-pureWhite">
+              <option value="NM">NM — Near Mint</option>
+              <option value="LP">LP — Lightly Played</option>
+              <option value="MP">MP — Moderately Played</option>
+              <option value="HP">HP — Heavily Played</option>
+              <option value="SEALED">Sellado / Mint</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-silverMuted mb-1">Estado en Vitrina (Bloqueado por API)</label>
+            <select id="confirm-trade-status" disabled class="w-full bg-obsidianVoid/60 border border-psychicMagenta/40 rounded-xl px-3 py-2.5 text-psychicMagenta font-semibold cursor-not-allowed">
+              <option value="wishlist_api">☁️ Referencia API / Buscada (Sin Físico)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between bg-obsidianVoid px-3.5 py-2.5 rounded-xl border border-gray-800">
+          <div>
+            <span class="text-pureWhite font-semibold block">✨ ¿Es versión Foil / Holográfica?</span>
+            <span class="text-[11px] text-silverMuted">Activa el reflejo giroscópico de doble capa</span>
+          </div>
+          <input id="confirm-is-foil" type="checkbox" checked class="w-4 h-4 accent-solarGold">
+        </div>
+
+        <!-- Grading Slab opcional -->
+        <div class="grid grid-cols-3 gap-2.5 bg-obsidianVoid p-3 rounded-xl border border-gray-800">
+          <div>
+            <label class="block text-[11px] text-silverMuted mb-1">Cápsula Slab</label>
+            <select id="confirm-grader" class="w-full bg-smokedCharcoal border border-gray-700 rounded-lg px-2 py-1.5 text-pureWhite">
+              <option value="">Raw (Sin Slab)</option>
+              <option value="PSA">PSA</option>
+              <option value="BGS">BGS</option>
+              <option value="CGC">CGC</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] text-silverMuted mb-1">Nota</label>
+            <input id="confirm-grade-score" type="text" value="10" class="w-full bg-smokedCharcoal border border-gray-700 rounded-lg px-2 py-1.5 text-pureWhite">
+          </div>
+          <div>
+            <label class="block text-[11px] text-silverMuted mb-1">N.º Cert.</label>
+            <input id="confirm-grade-cert" type="text" placeholder="84920112" class="w-full bg-smokedCharcoal border border-gray-700 rounded-lg px-2 py-1.5 text-pureWhite">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-silverMuted mb-1">Valor Mercado (USD)</label>
+            <input id="confirm-price-usd" oninput="updateConfirmLocalPriceHelper()" type="number" step="0.01" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-3 py-2 text-pureWhite font-mono">
+            <span id="confirm-local-price-helper" class="text-[11px] text-solarGold mt-0.5 block"></span>
+          </div>
+          <div>
+            <label class="block text-silverMuted mb-1">Costo Compra (USD, para ROI)</label>
+            <input id="confirm-cost-usd" type="number" step="0.01" placeholder="Opcional" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-3 py-2 text-pureWhite font-mono">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2.5 mt-5">
+        <button onclick="closeConfirmCardModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold text-silverMuted hover:text-pureWhite">Cancelar</button>
+        <button onclick="finalizeAddConfirmedCard()" class="px-5 py-2.5 rounded-xl bg-solarGold text-obsidianVoid font-extrabold text-xs sm:text-sm shadow-lg hover:brightness-105 transition">
+          + Guardar en Vitrina
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL B: FICHA ESTRATÉGICA DE PIEZA (3 TABS + SLAB + AURA AI + MAZO)  -->
+  <!-- ===================================================================== -->
+  <div id="item-detail-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-smokedCharcoal border border-solarGold/40 rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl my-auto fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <span id="modal-item-source" class="text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-obsidianVoid border border-gray-700 text-manaCyan">API</span>
+          <span id="modal-item-slab-pill" class="hidden text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-solarGold text-obsidianVoid">PSA 10</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Reportar SIEMPRE disponible en vista pública (cumplimiento App Store / Play Store) -->
+          <button id="modal-report-btn" onclick="openReportModal()" class="hidden px-3 py-1.5 rounded-xl bg-psychicMagenta/15 border border-psychicMagenta/40 text-psychicMagenta text-xs font-semibold">
+            🚩 Reportar / Bloquear
+          </button>
+          <button onclick="closeItemDetailModal()" class="w-8 h-8 rounded-full bg-obsidianVoid border border-gray-700 text-silverMuted hover:text-pureWhite">✕</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
+        <div class="md:col-span-5 flex flex-col items-center">
+          <div id="modal-holo-stage" class="holo-stage w-52 sm:w-56"></div>
+          <span class="text-[11px] text-silverMuted mt-2 text-center">Mueve el cursor para probar el reflejo doble capa</span>
+        </div>
+
+        <div class="md:col-span-7 flex flex-col">
+          <h3 id="modal-item-name" class="font-display text-xl font-bold text-pureWhite">Carta</h3>
+          <p id="modal-item-set" class="text-xs text-solarGold mb-2">Expansión</p>
+          <div id="modal-verification-banner" class="mb-3"></div>
+
+          <div class="grid grid-cols-3 gap-1.5 bg-obsidianVoid p-1 rounded-xl border border-gray-800 mb-4">
+            <button onclick="setItemModalTab('specs')" data-item-tab="specs" class="item-tab-btn py-1.5 px-2 rounded-lg text-xs font-semibold transition">Ficha Técnica</button>
+            <button onclick="setItemModalTab('ai')" data-item-tab="ai" class="item-tab-btn py-1.5 px-2 rounded-lg text-xs font-semibold transition">✨ Aura AI</button>
+            <button onclick="setItemModalTab('showcase')" data-item-tab="showcase" class="item-tab-btn py-1.5 px-2 rounded-lg text-xs font-semibold transition">Mi Vitrina</button>
+          </div>
+
+          <!-- Tab 1: Ficha Técnica + Traducción Offline -->
+          <div id="item-tab-specs" class="space-y-3 text-xs">
+            <div class="grid grid-cols-2 gap-2">
+              <div class="bg-obsidianVoid p-2.5 rounded-xl border border-gray-800">
+                <span class="text-silverMuted block">Valor Mercado</span>
+                <strong id="modal-spec-price" class="text-solarGold text-sm font-bold">$0</strong>
+              </div>
+              <div class="bg-obsidianVoid p-2.5 rounded-xl border border-gray-800">
+                <span class="text-silverMuted block">Plusvalía (ROI)</span>
+                <strong id="modal-spec-roi" class="text-emeraldAura text-sm font-bold">—</strong>
+              </div>
+            </div>
+            <div class="bg-obsidianVoid p-3 rounded-xl border border-gray-800">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-silverMuted font-semibold">Texto Oficial / Reglas</span>
+                <button onclick="translateModalOracleOffline()" class="text-[11px] px-2.5 py-1 rounded-lg bg-manaCyan/15 border border-manaCyan/40 text-manaCyan hover:bg-manaCyan/25 transition">
+                  🌐 Traducir offline (ML Kit)
+                </button>
+              </div>
+              <p id="modal-spec-oracle" class="text-pureWhite/90 leading-relaxed max-h-36 overflow-y-auto"></p>
+            </div>
+          </div>
+
+          <!-- Tab 2: Aura AI -->
+          <div id="item-tab-ai" class="hidden space-y-3 text-xs">
+            <div class="flex items-center justify-between bg-obsidianVoid p-2.5 rounded-xl border border-gray-800">
+              <span class="text-silverMuted">Cuota diaria Aura AI:</span>
+              <strong id="ai-quota-display" class="text-solarGold">3 / 3 gratis</strong>
+            </div>
+            <button onclick="runAuraAiForModalItem()" class="w-full py-2.5 px-4 rounded-xl bg-solarGold text-obsidianVoid font-extrabold text-xs shadow hover:brightness-105 transition">
+              ✨ Analizar Sinergias, Arquetipos y Posicionamiento
+            </button>
+            <div id="ai-analysis-box" class="hidden bg-obsidianVoid p-3.5 rounded-xl border border-solarGold/30 text-pureWhite/90 leading-relaxed space-y-2"></div>
+          </div>
+
+          <!-- Tab 3: Mi Vitrina + Enviar a Mazo Real -->
+          <div id="item-tab-showcase" class="hidden space-y-3 text-xs">
+            <div class="grid grid-cols-2 gap-2">
+              <div class="bg-obsidianVoid p-2.5 rounded-xl border border-gray-800">
+                <span class="text-silverMuted block">Ubicación Física</span>
+                <strong id="modal-slot-loc" class="text-manaCyan">Hoja 1 • Bolsillo #1</strong>
+              </div>
+              <div class="bg-obsidianVoid p-2.5 rounded-xl border border-gray-800">
+                <span class="text-silverMuted block">Condición</span>
+                <strong id="modal-cond-val" class="text-pureWhite">NM</strong>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-silverMuted mb-1">Estado Tradelist Público:</label>
+              <select id="modal-trade-select" onchange="updateModalItemTradeStatus(this.value)" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-3 py-2 text-pureWhite">
+                <option value="none">🔒 Solo Colección</option>
+                <option value="for_trade">🔄 Disponible para Cambio</option>
+                <option value="for_sale">💲 En Venta</option>
+              </select>
+            </div>
+
+            <div class="flex gap-2 pt-1">
+              <button id="modal-add-deck-btn" onclick="addModalItemToActiveDeck()" class="flex-1 py-2.5 px-3 rounded-xl bg-manaCyan/15 border border-manaCyan/40 text-manaCyan font-bold hover:bg-manaCyan/25 transition">
+                ⚔️ + Añadir a Mazo Activo
+              </button>
+              <button id="modal-delete-btn" onclick="deleteModalItem()" class="py-2.5 px-3.5 rounded-xl bg-red-950/40 border border-psychicMagenta/40 text-psychicMagenta hover:bg-red-900/50 transition">
+                🗑️
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL C: CREAR VITRINA (2 FAMILIAS, 15 COLECCIONES ANTI-MEZCLA)       -->
+  <!-- ===================================================================== -->
+  <div id="create-binder-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-smokedCharcoal border border-solarGold/50 rounded-3xl max-w-md w-full p-6 shadow-2xl fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-display text-lg font-bold text-solarGold">Crear Nueva Vitrina Dedicada</h3>
+        <button onclick="closeCreateBinderModal()" class="w-8 h-8 rounded-full bg-obsidianVoid border border-gray-700 text-silverMuted">✕</button>
+      </div>
+
+      <div id="cb-locked-box" class="hidden space-y-4 text-xs">
+        <div class="p-4 rounded-2xl bg-obsidianVoid border border-psychicMagenta/40 space-y-2">
+          <p class="text-psychicMagenta font-bold">🔒 Límite de Capacidad Gratuita Alcanzado</p>
+          <p class="text-silverMuted leading-relaxed">Ya creaste tu vitrina gratuita de 360 espacios. Desbloquea otra con 1 crédito de vitrina, 9+ espacios en tu Space Bank o activando <strong>Aura Pro</strong>.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-2">
+          <button onclick="buyStoreProduct('binder1'); closeCreateBinderModal();" class="py-3 rounded-xl bg-obsidianVoid border border-solarGold text-solarGold font-bold">Adquirir +1 Vitrina (USD $2.99)</button>
+          <button onclick="buyStoreProduct('pro'); closeCreateBinderModal();" class="py-3 rounded-xl bg-solarGold text-obsidianVoid font-extrabold">Activar Aura Pro (Ilimitado + 4x3 XL)</button>
+        </div>
+      </div>
+
+      <form id="cb-form" onsubmit="submitCreateBinder(event)" class="space-y-4 text-xs">
+        <div>
+          <label class="block text-silverMuted mb-1">Título de la Vitrina *</label>
+          <input id="cb-title" required type="text" placeholder="Ej. Master Set Scarlet & Violet 151" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-3.5 py-2.5 text-sm text-pureWhite focus:border-solarGold focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 bg-obsidianVoid p-1 rounded-xl border border-gray-800">
+          <button type="button" onclick="setCreateBinderFamily('cards')" id="cb-fam-cards" class="py-2 rounded-lg font-bold transition">🃏 Cartas TCG</button>
+          <button type="button" onclick="setCreateBinderFamily('objects')" id="cb-fam-objects" class="py-2 rounded-lg font-bold transition">🏆 Objetos Físicos</button>
+        </div>
+
+        <div>
+          <label class="block text-silverMuted mb-1">Colección Dedicada (Regla Anti-Mezcla)</label>
+          <select id="cb-collection-code" onchange="toggleCustomCollectionInput()" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-pureWhite"></select>
+        </div>
+
+        <div id="cb-custom-name-wrap" class="hidden">
+          <label class="block text-silverMuted mb-1">Nombre personalizado de la colección *</label>
+          <input id="cb-custom-name" type="text" placeholder="Ej. Mitos y Leyendas / Vinilos Jazz" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-3.5 py-2 text-sm text-pureWhite">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-silverMuted mb-1">Formato de Hoja</label>
+            <select id="cb-grid" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-3 py-2.5 text-pureWhite">
+              <option value="3x3">3x3 Estándar (360 slots)</option>
+              <option value="2x2">2x2 Compacta (160 slots)</option>
+              <option value="4x3">4x3 Pro XL (480 slots ★)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-silverMuted mb-1">Meta Master Set (opc.)</label>
+            <input id="cb-master-goal" type="number" placeholder="Ej. 165 cartas" class="w-full bg-obsidianVoid border border-gray-700 rounded-xl px-3 py-2.5 text-pureWhite">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3 rounded-2xl bg-solarGold text-obsidianVoid font-extrabold text-sm">
+          Crear Vitrina
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL D: VISTA PÚBLICA SOLO LECTURA (/u/:username/:binderId)          -->
+  <!-- ===================================================================== -->
+  <div id="public-preview-modal" class="hidden fixed inset-0 z-40 bg-obsidianVoid overflow-y-auto p-4 sm:p-6">
+    <div class="max-w-5xl mx-auto">
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-smokedCharcoal border border-manaCyan/40 rounded-2xl p-4 mb-5">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-[11px] uppercase tracking-wider text-manaCyan font-bold">🌐 Vitrina Pública Compartible • Modo Solo Lectura</span>
+            <span id="pub-trust-badge" class="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full"></span>
+          </div>
+          <h3 id="pub-title" class="font-display text-xl font-bold text-pureWhite mt-0.5">Vitrina</h3>
+          <p id="pub-url" class="text-xs text-silverMuted font-mono"></p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="openQrPosterModal()" class="px-3.5 py-2 rounded-xl bg-emeraldAura/15 border border-emeraldAura/50 text-emeraldAura font-bold text-xs">▣ Póster QR</button>
+          <button onclick="copyPublicUrl()" class="px-3.5 py-2 rounded-xl bg-solarGold text-obsidianVoid font-extrabold text-xs">🔗 Copiar Deep Link</button>
+          <button onclick="closePublicPreview()" class="px-3.5 py-2 rounded-xl bg-obsidianVoid border border-gray-700 text-pureWhite text-xs">✕ Cerrar</button>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div class="flex gap-2 flex-wrap">
+          <button onclick="setPublicFilter('all')" data-pub-filter="all" class="pub-filter-btn px-3.5 py-1.5 rounded-full text-xs font-bold transition">Todas</button>
+          <button onclick="setPublicFilter('verified_only')" data-pub-filter="verified_only" class="pub-filter-btn px-3.5 py-1.5 rounded-full text-xs font-bold transition">📸 Solo Físicas Escaneadas</button>
+          <button onclick="setPublicFilter('for_trade')" data-pub-filter="for_trade" class="pub-filter-btn px-3.5 py-1.5 rounded-full text-xs font-bold transition">🔄 Para Cambio</button>
+          <button onclick="setPublicFilter('for_sale')" data-pub-filter="for_sale" class="pub-filter-btn px-3.5 py-1.5 rounded-full text-xs font-bold transition">💲 En Venta</button>
+        </div>
+        <button onclick="contactCollectorSafe()" class="px-4 py-2 rounded-full bg-manaCyan/15 border border-manaCyan/50 text-manaCyan text-xs font-bold hover:bg-manaCyan/25 transition">
+          💬 Contactar (<span id="pub-contact-handle">@aura_trades_cl</span>)
+        </button>
+      </div>
+
+      <div id="public-items-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL E: GENERADOR DE PÓSTER QR COMPARTIBLE PARA TORNEOS (PLAN 2)     -->
+  <!-- ===================================================================== -->
+  <div id="qr-poster-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-smokedCharcoal border border-solarGold/50 rounded-3xl max-w-md w-full p-5 text-center space-y-4 my-auto fade-in">
+      <div class="flex items-center justify-between">
+        <h3 class="font-display text-base font-bold text-solarGold">▣ Tarjeta QR Oficial para Torneos / Historias</h3>
+        <button onclick="closeQrPosterModal()" class="w-8 h-8 rounded-full bg-obsidianVoid border border-gray-700 text-silverMuted">✕</button>
+      </div>
+      <canvas id="qr-poster-canvas" width="540" height="675" class="w-full rounded-2xl border border-gray-800 shadow-2xl mx-auto"></canvas>
+      <div class="flex gap-2.5">
+        <button onclick="downloadQrPosterPng()" class="flex-1 py-3 rounded-xl bg-solarGold text-obsidianVoid font-extrabold text-xs shadow hover:brightness-105 transition">
+          ⬇️ Descargar Imagen PNG
+        </button>
+        <button onclick="copyPublicUrl()" class="py-3 px-4 rounded-xl bg-obsidianVoid border border-gray-700 text-pureWhite text-xs font-semibold">
+          🔗 Copiar URL
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL F: SALTAR A HOJA / REPORTE UGC / IMPORTAR MAZO                  -->
+  <!-- ===================================================================== -->
+  <div id="jump-sheet-modal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+    <div class="bg-smokedCharcoal border border-gray-700 rounded-3xl max-w-xs w-full p-5 space-y-3 fade-in">
+      <div class="flex items-center justify-between">
+        <h4 class="font-display font-bold text-sm text-solarGold">Saltar a Hoja</h4>
+        <button onclick="document.getElementById('jump-sheet-modal').classList.add('hidden')" class="text-silverMuted">✕</button>
+      </div>
+      <div id="jump-sheet-list" class="grid grid-cols-4 gap-2 max-h-60 overflow-y-auto"></div>
+    </div>
+  </div>
+
+  <div id="report-modal" class="hidden fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
+    <div class="bg-smokedCharcoal border border-psychicMagenta/50 rounded-3xl max-w-sm w-full p-5 space-y-3 fade-in">
+      <h3 class="font-display text-base font-bold text-psychicMagenta">🚩 Moderación & Seguridad UGC</h3>
+      <p class="text-xs text-silverMuted">Reportar pieza, nota inapropiada o bloquear usuario:</p>
+      <div class="space-y-2 text-xs">
+        <button onclick="submitUgcReport('Imagen o nota inapropiada')" class="w-full text-left px-3.5 py-2.5 rounded-xl bg-obsidianVoid hover:border-psychicMagenta border border-gray-700 text-pureWhite">1. Imagen o texto de nota inapropiado</button>
+        <button onclick="submitUgcReport('Falsificación / Precio engañoso')" class="w-full text-left px-3.5 py-2.5 rounded-xl bg-obsidianVoid hover:border-psychicMagenta border border-gray-700 text-pureWhite">2. Carta falsificada (Proxy no declarada)</button>
+        <button onclick="submitUgcReport('Usuario bloqueado por spam')" class="w-full text-left px-3.5 py-2.5 rounded-xl bg-red-950/40 hover:border-psychicMagenta border border-psychicMagenta/40 text-psychicMagenta font-semibold">🚫 Bloquear a este coleccionista</button>
+      </div>
+      <button onclick="document.getElementById('report-modal').classList.add('hidden')" class="w-full text-xs text-silverMuted pt-1">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="deck-io-modal" class="hidden fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
+    <div class="bg-smokedCharcoal border border-manaCyan/50 rounded-3xl max-w-lg w-full p-5 space-y-4 fade-in">
+      <div class="flex items-center justify-between">
+        <h3 class="font-display text-base font-bold text-manaCyan">📥 Importar / Exportar Decklist Estándar</h3>
+        <button onclick="document.getElementById('deck-io-modal').classList.add('hidden')" class="text-silverMuted">✕</button>
+      </div>
+      <p class="text-xs text-silverMuted">Formato compatible con Moxfield, MTG Arena y Limitless (ej. <code>1 Atraxa, Grand Unifier</code> por línea):</p>
+      <textarea id="deck-io-textarea" rows="8" class="w-full bg-obsidianVoid border border-gray-700 rounded-2xl p-3 text-xs font-mono text-pureWhite focus:border-manaCyan focus:outline-none"></textarea>
+      <div class="flex justify-end gap-2">
+        <button onclick="copyDecklistText()" class="px-4 py-2.5 rounded-xl bg-obsidianVoid border border-gray-700 text-xs text-pureWhite font-semibold">📋 Copiar Lista</button>
+        <button onclick="applyImportedDecklist()" class="px-4 py-2.5 rounded-xl bg-manaCyan text-obsidianVoid text-xs font-extrabold">✓ Aplicar al Mazo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MOTOR COMPLETO JAVASCRIPT (ESTADO, APIS REALES, WEBP, QR Y MAZOS)     -->
+  <!-- ===================================================================== -->
+  <script>
+    // -----------------------------------------------------------------------
+    // 1. REGISTRO OFICIAL DE 15 COLECCIONES (ESPEJO EXACTO DE CollectionRegistry)
+    // -----------------------------------------------------------------------
+    const COLLECTIONS = [
+      { code: 'magic', family: 'cards', name: 'Magic: The Gathering', monogram: 'M', color: '#F3A55A', api: 'scryfall', sampleQueries: ['Atraxa', 'Sheoldred', 'The One Ring', 'Sol Ring', 'Black Lotus', 'Urza'] },
+      { code: 'pokemon', family: 'cards', name: 'Pokémon TCG', monogram: 'P', color: '#FFD700', api: 'tcgdex', sampleQueries: ['Charizard', 'Pikachu', 'Umbreon', 'Mewtwo', 'Gengar', 'Lugia'] },
+      { code: 'yugioh', family: 'cards', name: 'Yu-Gi-Oh!', monogram: 'Y', color: '#C58BFF', api: 'ygoprodeck', sampleQueries: ['Blue-Eyes', 'Dark Magician', 'Exodia', 'Ash Blossom', 'Stardust'] },
+      { code: 'one_piece', family: 'cards', name: 'One Piece Card Game', monogram: 'OP', color: '#FF6B6B', api: null, sampleQueries: [] },
+      { code: 'lorcana', family: 'cards', name: 'Disney Lorcana', monogram: 'L', color: '#00E5FF', api: null, sampleQueries: [] },
+      { code: 'digimon', family: 'cards', name: 'Digimon Card Game', monogram: 'DG', color: '#00FF87', api: null, sampleQueries: [] },
+      { code: 'dragon_ball', family: 'cards', name: 'Dragon Ball Super', monogram: 'DB', color: '#FF922B', api: null, sampleQueries: [] },
+      { code: 'star_wars', family: 'cards', name: 'Star Wars: Unlimited', monogram: 'SW', color: '#74C0FC', api: null, sampleQueries: [] },
+      { code: 'fab', family: 'cards', name: 'Flesh and Blood', monogram: 'FB', color: '#E599F7', api: null, sampleQueries: [] },
+      { code: 'naruto', family: 'cards', name: 'Naruto Kayou', monogram: 'N', color: '#FFA94D', api: null, sampleQueries: [] },
+      { code: 'other_card', family: 'cards', name: 'Otro Juego de Cartas…', monogram: '+', color: '#FFD700', api: null, custom: true, sampleQueries: [] },
+      { code: 'figures', family: 'objects', name: 'Figuras & Estatuas', monogram: 'FG', color: '#FF007A', api: null, sampleQueries: [] },
+      { code: 'comics', family: 'objects', name: 'Cómics & Manga', monogram: 'CM', color: '#00E5FF', api: null, sampleQueries: [] },
+      { code: 'retro_games', family: 'objects', name: 'Videojuegos Retro', monogram: 'RG', color: '#00FF87', api: null, sampleQueries: [] },
+      { code: 'other_object', family: 'objects', name: 'Otro Objeto Físico…', monogram: '+', color: '#FFD700', api: null, custom: true, sampleQueries: [] }
+    ];
+
+    const CURRENCIES = {
+      USD: { symbol: 'US$', rate: 1, decimals: 2 },
+      CLP: { symbol: 'CLP $', rate: 965, decimals: 0 },
+      EUR: { symbol: '€', rate: 0.92, decimals: 2 },
+      MXN: { symbol: 'MX$', rate: 19.8, decimals: 2 },
+      JPY: { symbol: '¥', rate: 153, decimals: 0 }
+    };
+
+    const I18N = {
+      es: {
+        onb_subtitle: "Bóveda digital de lujo para coleccionistas de TCG y piezas físicas: brillo giroscópico, Tradelist QR, Slabs PSA/BGS y Constructor de Mazos conectado.",
+        login_google: "Continuar con Google",
+        login_apple: "Continuar con Apple",
+        login_email: "Ingresar con Correo Electrónico",
+        my_binders_title: "Mis Vitrinas",
+        my_binders_subtitle: "Álbumes dedicados anti-mezcla con grillas 2x2, 3x3 y 4x3 Pro XL, Slabs y estado Tradelist.",
+        create_binder_btn: "Nueva Vitrina",
+        qr_poster_btn: "Póster QR Torneo",
+        public_preview_btn: "Vista Pública",
+        add_piece_btn: "Agregar Pieza",
+        prev_page: "Hoja Anterior",
+        next_page: "Hoja Siguiente",
+        catalog_title: "Catálogo Oficial & Captura en Lote",
+        catalog_subtitle: "Busca cartas en tiempo real (Scryfall, TCGdex, YGOPRODeck), confírmalas como en la app y agrégalas directo al bolsillo de tu vitrina.",
+        mode_search: "Buscar en API",
+        mode_batch_ocr: "Escáner por Lote",
+        mode_photo_webp: "Foto Propia WebP",
+        decks_title: "Constructor de Mazos & Localizador Físico",
+        decks_subtitle: "Cruza tus listas competitivas con tus vitrinas reales para saber en qué carpeta y bolsillo está cada carta.",
+        nav_binders: "Vitrinas",
+        nav_catalog: "Catálogo",
+        nav_decks: "Mazos",
+        nav_profile: "Perfil"
+      },
+      en: {
+        onb_subtitle: "Luxury digital vault for TCG & physical collectors: dual-layer gyroscopic shine, QR Tradelist, PSA/BGS Slabs, and inventory-linked Deck Builder.",
+        login_google: "Continue with Google",
+        login_apple: "Continue with Apple",
+        login_email: "Sign in with Email",
+        my_binders_title: "My Showcases",
+        my_binders_subtitle: "Dedicated anti-mixing binders with 2x2, 3x3 & 4x3 Pro XL grids, Slabs, and Tradelist badges.",
+        create_binder_btn: "New Showcase",
+        qr_poster_btn: "Tournament QR Poster",
+        public_preview_btn: "Public View",
+        add_piece_btn: "Add Item",
+        prev_page: "Prev Sheet",
+        next_page: "Next Sheet",
+        catalog_title: "Live Official Catalog & Batch Capture",
+        catalog_subtitle: "Search real-time APIs (Scryfall, TCGdex, YGOPRODeck), confirm details, and insert directly into your binder pocket.",
+        mode_search: "API Search",
+        mode_batch_ocr: "Batch OCR Scan",
+        mode_photo_webp: "Custom WebP Photo",
+        decks_title: "Deck Builder & Physical Locator",
+        decks_subtitle: "Cross-check competitive lists against your real showcases to see exact binder & pocket locations.",
+        nav_binders: "Showcases",
+        nav_catalog: "Catalog",
+        nav_decks: "Decks",
+        nav_profile: "Profile"
+      },
+      pt: {
+        onb_subtitle: "Cofre digital de luxo para colecionadores de TCG e peças físicas: brilho giroscópico, QR Tradelist, Slabs PSA/BGS e Deck Builder integrado.",
+        login_google: "Continuar com Google",
+        login_apple: "Continuar com Apple",
+        login_email: "Entrar com E-mail",
+        my_binders_title: "Minhas Vitrines",
+        my_binders_subtitle: "Álbuns dedicados sem mistura com grades 2x2, 3x3 e 4x3 Pro XL, Slabs e Tradelist.",
+        create_binder_btn: "Nova Vitrine",
+        qr_poster_btn: "Pôster QR Torneio",
+        public_preview_btn: "Visão Pública",
+        add_piece_btn: "Adicionar Item",
+        prev_page: "Folha Anterior",
+        next_page: "Próxima Folha",
+        catalog_title: "Catálogo Oficial & Captura em Lote",
+        catalog_subtitle: "Busque nas APIs oficiais em tempo real, confirme os dados e guarde direto no bolso da vitrine.",
+        mode_search: "Buscar na API",
+        mode_batch_ocr: "Scanner em Lote",
+        mode_photo_webp: "Foto Própria WebP",
+        decks_title: "Deck Builder & Localizador Físico",
+        decks_subtitle: "Cruze seus decks com suas vitrines reais para localizar cada carta.",
+        nav_binders: "Vitrines",
+        nav_catalog: "Catálogo",
+        nav_decks: "Decks",
+        nav_profile: "Perfil"
+      },
+      ja: {
+        onb_subtitle: "トレカ＆実物コレクター向け高級デジタルショーケース：2層ホログラム、QRトレードリスト、PSA鑑定スラブ、在庫連動デッキ構築。",
+        login_google: "Googleで続行",
+        login_apple: "Appleで続行",
+        login_email: "メールでログイン",
+        my_binders_title: "マイ・ショーケース",
+        my_binders_subtitle: "2x2・3x3・4x3 Pro対応の専用バインダー管理。",
+        create_binder_btn: "新規バインダー",
+        qr_poster_btn: "大会用QRポスター",
+        public_preview_btn: "公開プレビュー",
+        add_piece_btn: "アイテム追加",
+        prev_page: "前のシート",
+        next_page: "次のシート",
+        catalog_title: "公式API検索＆連続スキャン",
+        catalog_subtitle: "Scryfall・TCGdex・YGOPRODeckをリアルタイム検索し、確認ダイアログから直接ポケットへ収納。",
+        mode_search: "公式API検索",
+        mode_batch_ocr: "連続OCRスキャン",
+        mode_photo_webp: "実物WebP撮影",
+        decks_title: "デッキ構築＆収納ロケーター",
+        decks_subtitle: "デッキリストと所有バインダーを照合し、保管ポケット番号を即座に表示。",
+        nav_binders: "バインダー",
+        nav_catalog: "カタログ",
+        nav_decks: "デッキ",
+        nav_profile: "プロフィール"
+      }
+    };
+
+    // Respaldo instantáneo offline en caso de que el navegador no tenga red o la API tarde
+    const FALLBACK_CATALOG = {
+      magic: [
+        { externalId: 'mtg-atraxa', name: 'Atraxa, Grand Unifier', collectionCode: 'magic', sourceType: 'api_scryfall', imageUrl: '', artSymbol: '👼', artColor: '#FFD700', estimatedPrice: 42.50, cmc: 7, expansion: 'Phyrexia: All Will Be One', type: 'Legendary Creature — Phyrexian Angel', oracleText: 'Flying, vigilance, deathtouch, lifelink. When Atraxa enters, reveal the top ten cards of your library. For each card type, put one into your hand.', oracleEs: 'Vuela, vigilancia, toque mortal, vínculo vital. Al entrar, revela las 10 primeras cartas de tu biblioteca y pon una de cada tipo en tu mano.' },
+        { externalId: 'mtg-ring', name: 'The One Ring', collectionCode: 'magic', sourceType: 'api_scryfall', imageUrl: '', artSymbol: '💍', artColor: '#F59E0B', estimatedPrice: 94.00, cmc: 4, expansion: 'Tales of Middle-earth', type: 'Legendary Artifact', oracleText: 'Indestructible. When The One Ring enters, if you cast it, gain protection from everything until your next turn.', oracleEs: 'Indestructible. Al entrar al campo de batalla, si lo lanzaste, ganas protección contra todo hasta tu próximo turno.' },
+        { externalId: 'mtg-sheoldred', name: 'Sheoldred, the Apocalypse', collectionCode: 'magic', sourceType: 'api_scryfall', imageUrl: '', artSymbol: '🕷️', artColor: '#00FF87', estimatedPrice: 78.00, cmc: 4, expansion: 'Dominaria United', type: 'Legendary Creature — Phyrexian Praetor', oracleText: 'Deathtouch. Whenever you draw a card, you gain 2 life. Whenever an opponent draws a card, they lose 2 life.', oracleEs: 'Toque mortal. Siempre que robes una carta, ganas 2 vidas. Siempre que un oponente robe una carta, pierde 2 vidas.' },
+        { externalId: 'mtg-solring', name: 'Sol Ring', collectionCode: 'magic', sourceType: 'api_scryfall', imageUrl: '', artSymbol: '☀️', artColor: '#FFD700', estimatedPrice: 3.50, cmc: 1, expansion: 'Commander Masters', type: 'Artifact', oracleText: '{T}: Add {C}{C}.', oracleEs: '{T}: Agrega {C}{C}.' },
+        { externalId: 'mtg-crypt', name: 'Mana Crypt', collectionCode: 'magic', sourceType: 'api_scryfall', imageUrl: '', artSymbol: '🏛️', artColor: '#00E5FF', estimatedPrice: 175.00, cmc: 0, expansion: 'The Lost Caverns of Ixalan', type: 'Artifact', oracleText: 'At the beginning of your upkeep, flip a coin. If you lose the flip, Mana Crypt deals 3 damage to you. {T}: Add {C}{C}.', oracleEs: 'Al comienzo de tu mantenimiento, lanza una moneda. Si pierdes, te hace 3 puntos de daño. {T}: Agrega {C}{C}.' },
+        { externalId: 'mtg-urza', name: 'Urza, Lord High Artificer', collectionCode: 'magic', sourceType: 'api_scryfall', imageUrl: '', artSymbol: '⚙️', artColor: '#00E5FF', estimatedPrice: 28.00, cmc: 4, expansion: 'Modern Horizons', type: 'Legendary Creature — Human Artificer', oracleText: 'When Urza enters, create a 0/0 colorless Construct artifact creature token.', oracleEs: 'Cuando Urza entre, crea una ficha de criatura artefacto Constructo 0/0.' }
+      ],
+      pokemon: [
+        { externalId: 'pk-charizard', name: 'Charizard ex', collectionCode: 'pokemon', sourceType: 'api_tcgdex', imageUrl: '', artSymbol: '🔥', artColor: '#FF4500', estimatedPrice: 185.00, cmc: 2, expansion: 'Scarlet & Violet — 151', type: 'Pokémon Fase 2 • Fuego', oracleText: 'Infernal Reign: Search your deck for up to 3 Basic Fire Energy cards and attach them to your Pokémon in any way you like.', oracleEs: 'Reino Infernal: Busca en tu baraja hasta 3 Energías Fuego Básicas y únelas a tus Pokémon como quieras.' },
+        { externalId: 'pk-umbreon', name: 'Umbreon VMAX (Moonbreon)', collectionCode: 'pokemon', sourceType: 'api_tcgdex', imageUrl: '', artSymbol: '🌙', artColor: '#FF007A', estimatedPrice: 890.00, cmc: 3, expansion: 'Evolving Skies', type: 'Pokémon VMAX • Oscuro', oracleText: 'Dark Signal: Switch 1 of your opponent’s Benched Pokémon with their Active Pokémon.', oracleEs: 'Señal Oscura: Cambia 1 Pokémon en Banca de tu rival por su Pokémon Activo.' },
+        { externalId: 'pk-pikachu', name: 'Pikachu with Grey Felt Hat', collectionCode: 'pokemon', sourceType: 'api_tcgdex', imageUrl: '', artSymbol: '⚡', artColor: '#FFD700', estimatedPrice: 118.00, cmc: 1, expansion: 'SVP Black Star Promos', type: 'Pokémon Básico • Rayo', oracleText: 'Pika-Portrait: Search your deck for a Pikachu and put it onto your Bench.', oracleEs: 'Pika-Retrato: Busca en tu baraja un Pikachu y ponlo en tu Banca.' },
+        { externalId: 'pk-gengar', name: 'Gengar VMAX Alt Art', collectionCode: 'pokemon', sourceType: 'api_tcgdex', imageUrl: '', artSymbol: '👻', artColor: '#FF007A', estimatedPrice: 310.00, cmc: 3, expansion: 'Fusion Strike', type: 'Pokémon VMAX • Oscuro', oracleText: 'G-Max Swallow Up (250): During your next turn, this Pokémon can’t attack.', oracleEs: 'Gigaengullir (250): Durante tu próximo turno, este Pokémon no puede atacar.' }
+      ],
+      yugioh: [
+        { externalId: 'ygo-bewd', name: 'Blue-Eyes White Dragon', collectionCode: 'yugioh', sourceType: 'api_ygoprodeck', imageUrl: '', artSymbol: '🐉', artColor: '#00E5FF', estimatedPrice: 125.00, cmc: 8, expansion: 'Legend of Blue Eyes White Dragon', type: 'Normal Monster • Dragon', oracleText: 'This legendary dragon is a powerful engine of destruction. Virtually invincible, very few have faced this awesome creature and lived to tell the tale.', oracleEs: 'Este legendario dragón es un poderoso motor de destrucción.' },
+        { externalId: 'ygo-dm', name: 'Dark Magician', collectionCode: 'yugioh', sourceType: 'api_ygoprodeck', imageUrl: '', artSymbol: '🪄', artColor: '#C58BFF', estimatedPrice: 88.00, cmc: 7, expansion: 'Quarter Century Bonanza', type: 'Normal Monster • Spellcaster', oracleText: 'The ultimate wizard in terms of attack and defense.', oracleEs: 'El mago definitivo en términos de ataque y defensa.' }
+      ]
+    };
+
+    // -----------------------------------------------------------------------
+    // 2. ESTADO REACTIVO CENTRAL DE LA APP
+    // -----------------------------------------------------------------------
+    const state = {
+      lang: 'es',
+      currency: 'USD',
+      activeTab: 'binders',
+      createFamily: 'cards',
+      profile: {
+        id: 'usr_aura_001',
+        username: 'coleccionista_aura',
+        displayName: 'Coleccionista Aura',
+        isPro: false,
+        isAdmin: false,
+        extraBinderCredits: 1,
+        availableSlots: 18,
+        aiDailyRemaining: 3,
+        contactHandle: '@aura_trades_cl'
+      },
+      binders: [
+        {
+          id: 'binder_mtg_1',
+          title: 'Commander & Joyas Foil',
+          family: 'cards',
+          collectionCode: 'magic',
+          customCollectionName: null,
+          gridFormat: '3x3',
+          maxSlots: 360,
+          masterGoal: 100,
+          isFreeTier: true,
+          isPublic: true
+        },
+        {
+          id: 'binder_pk_1',
+          title: 'Master Set Scarlet & Violet 151',
+          family: 'cards',
+          collectionCode: 'pokemon',
+          customCollectionName: null,
+          gridFormat: '3x3',
+          maxSlots: 360,
+          masterGoal: 165,
+          isFreeTier: false,
+          isPublic: true
+        }
+      ],
+      items: [
+        {
+          id: 'itm_1',
+          binderId: 'binder_mtg_1',
+          collectionCode: 'magic',
+          sourceType: 'api_scryfall',
+          isPhysicallyVerified: true,
+          name: 'Atraxa, Grand Unifier',
+          imageUrl: '',
+          artSymbol: '👼',
+          artColor: '#FFD700',
+          isFoil: true,
+          condition: 'NM',
+          estimatedPrice: 42.50,
+          purchaseCost: 26.00,
+          positionIndex: 0,
+          tradeStatus: 'none',
+          slab: { grader: 'PSA', score: '10', cert: '88412093' },
+          notes: 'Escaneada con ML Kit OCR • Comandante principal Phyrexia Foil.',
+          cmc: 7,
+          metadata: {
+            expansion: 'Phyrexia: All Will Be One',
+            type: 'Legendary Creature — Phyrexian Angel',
+            oracleText: 'Flying, vigilance, deathtouch, lifelink. When Atraxa enters the battlefield, reveal the top ten cards of your library.',
+            oracleEs: 'Vuela, vigilancia, toque mortal, vínculo vital. Al entrar al campo de batalla, revela las 10 primeras cartas de tu biblioteca y toma una de cada tipo.'
+          }
+        },
+        {
+          id: 'itm_2',
+          binderId: 'binder_mtg_1',
+          collectionCode: 'magic',
+          sourceType: 'api_scryfall',
+          isPhysicallyVerified: true,
+          name: 'The One Ring',
+          imageUrl: '',
+          artSymbol: '💍',
+          artColor: '#F59E0B',
+          isFoil: true,
+          condition: 'NM',
+          estimatedPrice: 94.00,
+          purchaseCost: 55.00,
+          positionIndex: 1,
+          tradeStatus: 'for_trade',
+          slab: null,
+          notes: 'Escaneada con ML Kit OCR • Bundle Borderless Foil disponible para cambio.',
+          cmc: 4,
+          metadata: {
+            expansion: 'Tales of Middle-earth',
+            type: 'Legendary Artifact',
+            oracleText: 'Indestructible. When The One Ring enters the battlefield, if you cast it, gain protection from everything until your next turn.',
+            oracleEs: 'Indestructible. Cuando El Anillo Único entre al campo de batalla, si lo lanzaste, ganas protección contra todo hasta tu próximo turno.'
+          }
+        },
+        {
+          id: 'itm_5',
+          binderId: 'binder_mtg_1',
+          collectionCode: 'magic',
+          sourceType: 'api_scryfall',
+          isPhysicallyVerified: false,
+          name: 'Mana Crypt',
+          imageUrl: '',
+          artSymbol: '🏛️',
+          artColor: '#00E5FF',
+          isFoil: false,
+          condition: 'NM',
+          estimatedPrice: 175.00,
+          purchaseCost: 0,
+          positionIndex: 2,
+          tradeStatus: 'wishlist_api',
+          slab: null,
+          notes: 'Agregada desde Buscador API como referencia / Wishlist (El coleccionista aún no posee el ejemplar físico).',
+          cmc: 0,
+          metadata: {
+            expansion: 'The Lost Caverns of Ixalan',
+            type: 'Artifact',
+            oracleText: 'At the beginning of your upkeep, flip a coin. If you lose the flip, Mana Crypt deals 3 damage to you. {T}: Add {C}{C}.',
+            oracleEs: 'Al comienzo de tu mantenimiento, lanza una moneda. Si pierdes, te hace 3 puntos de daño. {T}: Agrega {C}{C}.'
+          }
+        },
+        {
+          id: 'itm_3',
+          binderId: 'binder_mtg_1',
+          collectionCode: 'magic',
+          sourceType: 'api_scryfall',
+          isPhysicallyVerified: true,
+          name: 'Sheoldred, the Apocalypse',
+          imageUrl: '',
+          artSymbol: '🕷️',
+          artColor: '#00FF87',
+          isFoil: false,
+          condition: 'NM',
+          estimatedPrice: 78.00,
+          purchaseCost: 65.00,
+          positionIndex: 4,
+          tradeStatus: 'for_sale',
+          slab: null,
+          notes: 'Escaneada físicamente • Disponible entrega en tienda.',
+          cmc: 4,
+          metadata: {
+            expansion: 'Dominaria United',
+            type: 'Legendary Creature — Phyrexian Praetor',
+            oracleText: 'Deathtouch. Whenever you draw a card, you gain 2 life. Whenever an opponent draws a card, they lose 2 life.',
+            oracleEs: 'Toque mortal. Siempre que robes una carta, ganas 2 vidas. Siempre que un oponente robe una carta, pierde 2 vidas.'
+          }
+        },
+        {
+          id: 'itm_4',
+          binderId: 'binder_pk_1',
+          collectionCode: 'pokemon',
+          sourceType: 'api_tcgdex',
+          isPhysicallyVerified: true,
+          name: 'Charizard ex',
+          imageUrl: '',
+          artSymbol: '🔥',
+          artColor: '#FF4500',
+          isFoil: true,
+          condition: 'NM',
+          estimatedPrice: 185.00,
+          purchaseCost: 110.00,
+          positionIndex: 0,
+          tradeStatus: 'none',
+          slab: { grader: 'BGS', score: '9.5', cert: '001592841' },
+          notes: 'Escaneada con ML Kit OCR • Special Illustration Rare #199/165.',
+          cmc: 2,
+          metadata: {
+            expansion: 'Scarlet & Violet — 151',
+            type: 'Pokémon Fase 2 • Fuego',
+            oracleText: 'Infernal Reign: Search your deck for up to 3 Basic Fire Energy cards and attach them to your Pokémon.',
+            oracleEs: 'Reino Infernal: Busca hasta 3 Energías Fuego Básicas y únelas a tus Pokémon.'
+          }
+        }
+      ],
+      decks: [
+        {
+          id: 'deck_1',
+          title: 'Atraxa Superfriends & Value',
+          gameType: 'magic',
+          format: 'Commander (EDH)',
+          entries: [
+            { qty: 1, name: 'Atraxa, Grand Unifier', cmc: 7, estUsd: 42.50 },
+            { qty: 1, name: 'The One Ring', cmc: 4, estUsd: 94.00 },
+            { qty: 1, name: 'Sheoldred, the Apocalypse', cmc: 4, estUsd: 78.00 },
+            { qty: 1, name: 'Sol Ring', cmc: 1, estUsd: 3.50 },
+            { qty: 1, name: 'Mana Crypt', cmc: 0, estUsd: 175.00 }
+          ]
+        }
+      ],
+      reports: [
+        { id: 'rep_1', itemName: 'The One Ring', reason: 'Consulta de autenticidad (Verificada)', status: 'reviewed', date: 'Hace 2h' }
+      ],
+      activeBinderId: 'binder_mtg_1',
+      currentPage: 0,
+      selectedSlotIndex: null,
+      justAddedItemId: null,
+      draggedItemId: null,
+      catalogMode: 'search',
+      apiSearchResults: [],
+      pendingConfirmCard: null,
+      batchQueue: [],
+      compressedWebpDataUrl: null,
+      selectedModalItemId: null,
+      isPublicModal: false,
+      publicFilter: 'all',
+      activeDeckId: 'deck_1'
+    };
+
+    let searchDebounceTimer = null;
+
+    // -----------------------------------------------------------------------
+    // 3. HELPERS DE FORMATO, MONEDA, COLECCIÓN Y ARTE VECTORIAL/REMOTO
+    // -----------------------------------------------------------------------
+    function getSpec(code) {
+      return COLLECTIONS.find(c => c.code === code) || COLLECTIONS[0];
+    }
+
+    function getBinderCollectionLabel(binder) {
+      if (binder.customCollectionName) return binder.customCollectionName;
+      return getSpec(binder.collectionCode).name;
+    }
+
+    function formatMoney(usdAmount) {
+      const cfg = CURRENCIES[state.currency] || CURRENCIES.USD;
+      const val = (usdAmount || 0) * cfg.rate;
+      const formatted = val.toLocaleString('es-CL', {
+        minimumFractionDigits: cfg.decimals,
+        maximumFractionDigits: cfg.decimals
+      });
+      return `${cfg.symbol}${formatted}`;
+    }
+
+    function slotsPerSheet(gridFormat) {
+      if (gridFormat === '2x2') return 4;
+      if (gridFormat === '4x3') return 12;
+      return 9;
+    }
+
+    function gridColsClass(gridFormat) {
+      if (gridFormat === '2x2') return 'grid-cols-2 max-w-xl mx-auto';
+      if (gridFormat === '4x3') return 'grid-cols-4';
+      return 'grid-cols-3 max-w-4xl mx-auto';
+    }
+
+    function showToast(msg, tone = 'gold') {
+      const box = document.getElementById('toast-container');
+      const map = {
+        gold: 'border-solarGold text-solarGold bg-smokedCharcoal',
+        cyan: 'border-manaCyan text-manaCyan bg-smokedCharcoal',
+        emerald: 'border-emeraldAura text-emeraldAura bg-smokedCharcoal',
+        magenta: 'border-psychicMagenta text-psychicMagenta bg-smokedCharcoal'
+      };
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto border ${map[tone] || map.gold} px-4 py-3 rounded-2xl shadow-2xl text-xs font-semibold fade-in`;
+      el.textContent = msg;
+      box.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transition = 'opacity 0.22s ease';
+        setTimeout(() => el.remove(), 240);
+      }, 3100);
+    }
+
+    function renderCardVisualHtml(card, compact = false) {
+      const title = (card.name || 'Pieza').replace(/"/g, '&quot;');
+      const sub = (card.expansion || card.metadata?.expansion || getSpec(card.collectionCode).name).replace(/"/g, '&quot;');
+      const color = card.artColor || getSpec(card.collectionCode).color || '#FFD700';
+      const symbol = card.artSymbol || getSpec(card.collectionCode).monogram || '◆';
+
+      const fallbackSvg = `
+        <svg viewBox="0 0 220 308" class="w-full h-full object-cover" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="g_${symbol.codePointAt(0)}" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#171A29"/>
+              <stop offset="55%" stop-color="#0A0C14"/>
+              <stop offset="100%" stop-color="${color}" stop-opacity="0.32"/>
+            </linearGradient>
+          </defs>
+          <rect width="220" height="308" fill="url(#g_${symbol.codePointAt(0)})"/>
+          <rect x="9" y="9" width="202" height="290" rx="12" fill="none" stroke="${color}" stroke-opacity="0.4" stroke-width="1.4"/>
+          <polygon points="110,48 164,122 110,196 56,122" fill="none" stroke="${color}" stroke-opacity="0.45" stroke-width="1.6"/>
+          <text x="110" y="138" text-anchor="middle" font-size="${compact ? '46' : '54'}" fill="${color}">${symbol}</text>
+          <rect x="16" y="220" width="188" height="68" rx="9" fill="#06070B" fill-opacity="0.84" stroke="${color}" stroke-opacity="0.3"/>
+          <text x="110" y="247" text-anchor="middle" fill="#F8FAFC" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="13">${title.slice(0, 22)}</text>
+          <text x="110" y="268" text-anchor="middle" fill="${color}" font-family="Inter, sans-serif" font-size="10">${sub.slice(0, 28)}</text>
+        </svg>
+      `;
+
+      if (card.imageUrl && (card.imageUrl.startsWith('http') || card.imageUrl.startsWith('data:'))) {
+        return `
+          <div class="w-full h-full relative bg-obsidianVoid">
+            <img src="${card.imageUrl}" alt="${title}" loading="lazy" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');" />
+            <div class="hidden w-full h-full">${fallbackSvg}</div>
+          </div>
+        `;
+      }
+      return fallbackSvg;
+    }
+
+    function getSlabHeaderHtml(slab) {
+      if (!slab || !slab.grader) return '';
+      return `
+        <div class="bg-gradient-to-r from-obsidianVoid via-smokedCharcoal to-obsidianVoid border-b-2 border-solarGold px-2 py-1 flex items-center justify-between text-[9px] font-mono">
+          <span class="text-solarGold font-extrabold">${slab.grader}</span>
+          <span class="text-pureWhite truncate px-1">GEM MT</span>
+          <span class="px-1.5 py-0.2 rounded bg-solarGold text-obsidianVoid font-extrabold">${slab.score || '10'}</span>
+        </div>
+      `;
+    }
+
+    function getTradeBadgeHtml(status, isVerified = true) {
+      if (!isVerified) return `<span class="px-1.5 py-0.5 rounded bg-psychicMagenta text-pureWhite font-extrabold text-[8.5px] shadow">☁️ API • SIN FÍSICO</span>`;
+      if (status === 'for_trade') return `<span class="px-1.5 py-0.5 rounded bg-manaCyan text-obsidianVoid font-extrabold text-[9px] shadow">CAMBIO</span>`;
+      if (status === 'for_sale') return `<span class="px-1.5 py-0.5 rounded bg-emeraldAura text-obsidianVoid font-extrabold text-[9px] shadow">VENTA</span>`;
+      return `<span class="px-1.5 py-0.5 rounded bg-emeraldAura/20 border border-emeraldAura/50 text-emeraldAura font-bold text-[8.5px]">📸 FÍSICA</span>`;
+    }
+
+    function getUnverifiedApiWatermarkHtml(item) {
+      if (item.isPhysicallyVerified !== false) return '';
+      return `
+        <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 bg-obsidianVoid/85 border-y border-psychicMagenta/70 py-1 text-center pointer-events-none">
+          <span class="text-[9px] font-extrabold tracking-wider text-psychicMagenta uppercase">☁️ Referencia API • No Física</span>
+        </div>
+      `;
+    }
+
+    // -----------------------------------------------------------------------
+    // 4. IDIOMA, DIVISA Y SESIÓN
+    // -----------------------------------------------------------------------
+    function setLanguage(lang) {
+      state.lang = lang;
+      const dict = I18N[lang] || I18N.es;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (dict[key]) el.textContent = dict[key];
+      });
+      document.querySelectorAll('.lang-btn').forEach(btn => {
+        const active = btn.getAttribute('data-lang-btn') === lang;
+        btn.className = active
+          ? 'lang-btn px-2.5 py-1 rounded-full text-xs font-bold bg-solarGold text-obsidianVoid transition'
+          : 'lang-btn px-2.5 py-1 rounded-full text-xs font-medium text-silverMuted hover:text-pureWhite transition';
+      });
+      const sel = document.getElementById('header-lang-select');
+      if (sel) sel.value = lang;
+    }
+
+    function setCurrency(curr) {
+      state.currency = curr;
+      document.getElementById('header-currency-select').value = curr;
+      document.getElementById('onb-currency-select').value = curr;
+      renderAll();
+      showToast(`💱 Divisa activa: ${curr}`, 'cyan');
+    }
+
+    function loginUser(provider) {
+      document.getElementById('onboarding-screen').classList.add('hidden');
+      const shell = document.getElementById('app-shell');
+      shell.classList.remove('hidden');
+      shell.classList.add('flex');
+      switchTab('binders');
+      renderAll();
+      showToast(`✨ Bóveda abierta con ${provider}`, 'gold');
+    }
+
+    function logoutUser() {
+      document.getElementById('app-shell').classList.add('hidden');
+      document.getElementById('app-shell').classList.remove('flex');
+      document.getElementById('onboarding-screen').classList.remove('hidden');
+    }
+
+    function switchTab(tab) {
+      state.activeTab = tab;
+      ['binders', 'catalog', 'decks', 'profile'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
+      });
+      document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+        const active = btn.getAttribute('data-nav-tab') === tab;
+        btn.className = active
+          ? 'nav-tab-btn flex flex-col items-center justify-center py-2 rounded-2xl text-xs font-extrabold bg-smokedCharcoal text-solarGold border border-solarGold/35 transition'
+          : 'nav-tab-btn flex flex-col items-center justify-center py-2 rounded-2xl text-xs font-medium text-silverMuted hover:text-pureWhite transition';
+      });
+
+      if (tab === 'catalog') {
+        syncCatalogHeaderAndMode();
+      } else if (tab === 'decks') {
+        renderDecksWorkspace();
+      } else if (tab === 'profile') {
+        renderProfileView();
+      } else if (tab === 'binders') {
+        renderBindersList();
+        if (!document.getElementById('binder-detail-subview').classList.contains('hidden')) {
+          renderActiveBinderPockets();
+        }
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 5. PLAN 1: VITRINAS, GRILLAS 2x2 / 3x3 / 4x3 Y DRAG & DROP DE BOLSILLOS
+    // -----------------------------------------------------------------------
+    function renderBindersList() {
+      const grid = document.getElementById('binders-grid');
+      grid.innerHTML = state.binders.map(b => {
+        const spec = getSpec(b.collectionCode);
+        const bItems = state.items.filter(i => i.binderId === b.id);
+        const physicalItems = bItems.filter(i => i.isPhysicallyVerified !== false);
+        const apiOnlyCount = bItems.length - physicalItems.length;
+        const valUsd = physicalItems.reduce((s, i) => s + (i.estimatedPrice || 0), 0);
+        const targetCap = b.masterGoal || b.maxSlots;
+        const pct = Math.min(100, Math.round((bItems.length / targetCap) * 100));
+        const trustHtml = apiOnlyCount === 0
+          ? `<span class="text-[10px] font-bold text-emeraldAura">🛡️ 100% Física Escaneada</span>`
+          : `<span class="text-[10px] font-bold text-psychicMagenta">☁️ ${physicalItems.length} Físicas • ${apiOnlyCount} vía API</span>`;
+
+        return `
+          <div onclick="openBinderDetail('${b.id}')" class="group cursor-pointer bg-smokedCharcoal hover:bg-charcoalRaised border border-gray-800 hover:border-solarGold/60 rounded-3xl p-5 transition shadow-xl flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-3">
+                <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-obsidianVoid border border-gray-700" style="color:${spec.color}">
+                  <span>${spec.monogram}</span>
+                  <span>${getBinderCollectionLabel(b)}</span>
+                </span>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-obsidianVoid border border-gray-700 text-manaCyan">${b.gridFormat}</span>
+                  <span class="text-[11px] text-silverMuted">${b.isPublic ? '🌐 Pública' : '🔒 Privada'}</span>
+                </div>
+              </div>
+              <h3 class="font-display text-lg font-bold text-pureWhite group-hover:text-solarGold transition">${b.title}</h3>
+              <div class="flex items-center justify-between gap-2 mt-1">
+                <p class="text-xs text-silverMuted">Valor Físico: <strong class="text-solarGold">${formatMoney(valUsd)}</strong></p>
+                ${trustHtml}
+              </div>
+            </div>
+
+            <div class="mt-5">
+              <div class="flex justify-between text-xs mb-1.5">
+                <span class="text-silverMuted">${b.masterGoal ? `Master Set: ${bItems.length} / ${b.masterGoal}` : `${bItems.length} / ${b.maxSlots} ocupados`}</span>
+                <span class="text-emeraldAura font-bold">${pct}%</span>
+              </div>
+              <div class="w-full h-2 bg-obsidianVoid rounded-full overflow-hidden border border-gray-800">
+                <div class="h-full bg-gradient-to-r from-manaCyan via-solarGold to-emeraldAura rounded-full transition-all duration-300" style="width:${Math.max(4, pct)}%"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openBinderDetail(binderId, keepPage = false) {
+      state.activeBinderId = binderId;
+      if (!keepPage) state.currentPage = 0;
+      document.getElementById('binders-list-subview').classList.add('hidden');
+      document.getElementById('binder-detail-subview').classList.remove('hidden');
+      renderActiveBinderPockets();
+    }
+
+    function closeBinderDetail() {
+      document.getElementById('binder-detail-subview').classList.add('hidden');
+      document.getElementById('binders-list-subview').classList.remove('hidden');
+      renderBindersList();
+    }
+
+    function changeBinderGridFormat(newFormat) {
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      if (!binder) return;
+      if (newFormat === '4x3' && !state.profile.isPro && !state.profile.isAdmin) {
+        document.getElementById('detail-grid-switcher').value = binder.gridFormat;
+        showToast('★ El formato panorámico 4x3 (12 cartas/hoja) es exclusivo de Aura Pro. Actívalo en Perfil.', 'magenta');
+        return;
+      }
+      binder.gridFormat = newFormat;
+      state.currentPage = 0;
+      renderActiveBinderPockets();
+      showToast(`✨ Grilla actualizada a ${newFormat} (${slotsPerSheet(newFormat)} bolsillos por hoja)`, 'cyan');
+    }
+
+    function changeBinderPage(delta) {
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      const perSheet = slotsPerSheet(binder.gridFormat);
+      const totalPages = Math.ceil(binder.maxSlots / perSheet);
+      const next = state.currentPage + delta;
+      if (next >= 0 && next < totalPages) {
+        state.currentPage = next;
+        renderActiveBinderPockets();
+      }
+    }
+
+    function openJumpSheetModal() {
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      const perSheet = slotsPerSheet(binder.gridFormat);
+      const totalPages = Math.ceil(binder.maxSlots / perSheet);
+      const bItems = state.items.filter(i => i.binderId === binder.id);
+      const list = document.getElementById('jump-sheet-list');
+      let html = '';
+      for (let p = 0; p < totalPages; p++) {
+        const start = p * perSheet;
+        const hasCards = bItems.some(i => i.positionIndex >= start && i.positionIndex < start + perSheet);
+        html += `
+          <button onclick="state.currentPage=${p}; renderActiveBinderPockets(); document.getElementById('jump-sheet-modal').classList.add('hidden');"
+            class="py-2 rounded-xl text-xs font-mono border ${p === state.currentPage ? 'bg-solarGold text-obsidianVoid font-extrabold border-solarGold' : (hasCards ? 'bg-obsidianVoid border-emeraldAura/40 text-emeraldAura' : 'bg-obsidianVoid border-gray-800 text-silverMuted')}">
+            #${p + 1}
+          </button>
+        `;
+      }
+      list.innerHTML = html;
+      document.getElementById('jump-sheet-modal').classList.remove('hidden');
+    }
+
+    function renderActiveBinderPockets() {
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      if (!binder) return;
+      const perSheet = slotsPerSheet(binder.gridFormat);
+      const totalPages = Math.ceil(binder.maxSlots / perSheet);
+      const startIdx = state.currentPage * perSheet;
+      const bItems = state.items.filter(i => i.binderId === binder.id);
+
+      document.getElementById('detail-binder-title').textContent = binder.title;
+      document.getElementById('detail-collection-pill').textContent = `◆ ${getBinderCollectionLabel(binder)}`;
+      document.getElementById('detail-grid-pill').textContent = binder.gridFormat;
+      document.getElementById('detail-grid-switcher').value = binder.gridFormat;
+      document.getElementById('detail-binder-stats').textContent = `${bItems.length} / ${binder.maxSlots} ocupados • Restan ${Math.max(0, binder.maxSlots - bItems.length)}`;
+      document.getElementById('page-indicator').textContent = `Hoja ${state.currentPage + 1} de ${totalPages}`;
+      document.getElementById('slot-range-indicator').textContent = `Bolsillos #${startIdx + 1} – #${Math.min(binder.maxSlots, startIdx + perSheet)}`;
+
+      document.getElementById('prev-page-btn').disabled = state.currentPage === 0;
+      document.getElementById('next-page-btn').disabled = state.currentPage >= totalPages - 1;
+
+      const grid = document.getElementById('binder-pockets-grid');
+      grid.className = `grid ${gridColsClass(binder.gridFormat)} gap-3 sm:gap-4 bg-smokedCharcoal/70 border border-gray-800 p-3 sm:p-5 rounded-3xl shadow-2xl`;
+
+      let html = '';
+      for (let i = 0; i < perSheet; i++) {
+        const slotIndex = startIdx + i;
+        if (slotIndex >= binder.maxSlots) break;
+        const item = bItems.find(it => it.positionIndex === slotIndex);
+
+        if (item) {
+          const pulseClass = state.justAddedItemId === item.id ? 'just-added-pulse' : '';
+          const isVerified = item.isPhysicallyVerified !== false;
+          const borderStyle = !isVerified
+            ? 'border-dashed border-psychicMagenta/75 opacity-90'
+            : (item.isFoil ? 'border-solarGold/70 shadow-lg shadow-solarGold/15' : 'border-gray-700');
+          html += `
+            <div draggable="true"
+              ondragstart="onPocketDragStart(event, '${item.id}')"
+              ondragover="onPocketDragOver(event)"
+              ondragleave="onPocketDragLeave(event)"
+              ondrop="onPocketDrop(event, ${slotIndex})"
+              onclick="openItemDetailModal('${item.id}', false)"
+              class="holo-stage cursor-grab active:cursor-grabbing ${pulseClass} rounded-2xl">
+              <div onmousemove="handleHoloTilt(event, this)" onmouseleave="resetHoloTilt(this)"
+                class="holo-card w-full aspect-[2.5/3.65] rounded-xl sm:rounded-2xl overflow-hidden border ${borderStyle} bg-obsidianVoid flex flex-col">
+                ${getSlabHeaderHtml(item.slab)}
+                <div class="relative flex-1 min-h-0">
+                  ${renderCardVisualHtml(item, true)}
+                  ${item.isFoil && isVerified ? '<div class="holo-foil-layer"></div><div class="holo-sparkle-layer"></div>' : ''}
+                  ${getUnverifiedApiWatermarkHtml(item)}
+                  <div class="absolute top-1.5 left-1.5 flex items-center gap-1 flex-wrap">
+                    <span class="px-1.5 py-0.5 rounded bg-black/80 text-[9px] font-mono text-silverMuted">#${slotIndex + 1}</span>
+                    ${getTradeBadgeHtml(item.tradeStatus, isVerified)}
+                  </div>
+                  ${item.isFoil && isVerified ? '<span class="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-solarGold text-obsidianVoid font-extrabold text-[8px]">FOIL</span>' : ''}
+                  <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-obsidianVoid via-obsidianVoid/85 to-transparent p-2 pt-5">
+                    <p class="text-[11px] font-bold text-pureWhite truncate">${item.name}</p>
+                    <p class="text-[10px] font-semibold ${isVerified ? 'text-solarGold' : 'text-silverMuted line-through'}">${formatMoney(item.estimatedPrice)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          html += `
+            <button
+              ondragover="onPocketDragOver(event)"
+              ondragleave="onPocketDragLeave(event)"
+              ondrop="onPocketDrop(event, ${slotIndex})"
+              onclick="goToCatalogForPocket('${binder.id}', ${slotIndex})"
+              class="aspect-[2.5/3.65] rounded-xl sm:rounded-2xl border border-dashed border-solarGold/25 hover:border-solarGold bg-obsidianVoid/55 hover:bg-obsidianVoid flex flex-col items-center justify-center gap-1 text-silverMuted hover:text-solarGold transition group">
+              <span class="text-2xl font-light group-hover:scale-110 transition">+</span>
+              <span class="text-[10px] font-mono">#${slotIndex + 1}</span>
+            </button>
+          `;
+        }
+      }
+      grid.innerHTML = html;
+      if (state.justAddedItemId) {
+        setTimeout(() => { state.justAddedItemId = null; }, 3500);
+      }
+    }
+
+    // Drag & Drop entre bolsillos (swapItemPositions)
+    function onPocketDragStart(e, itemId) {
+      state.draggedItemId = itemId;
+      e.dataTransfer.effectAllowed = 'move';
+    }
+    function onPocketDragOver(e) {
+      e.preventDefault();
+      e.currentTarget.classList.add('pocket-drop-over');
+    }
+    function onPocketDragLeave(e) {
+      e.currentTarget.classList.remove('pocket-drop-over');
+    }
+    function onPocketDrop(e, targetSlotIndex) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('pocket-drop-over');
+      if (!state.draggedItemId) return;
+
+      const dragged = state.items.find(i => i.id === state.draggedItemId);
+      state.draggedItemId = null;
+      if (!dragged || dragged.positionIndex === targetSlotIndex) return;
+
+      const occupant = state.items.find(i => i.binderId === dragged.binderId && i.positionIndex === targetSlotIndex);
+      const oldSlot = dragged.positionIndex;
+      dragged.positionIndex = targetSlotIndex;
+      if (occupant) {
+        occupant.positionIndex = oldSlot;
+        showToast(`⇄ Intercambiados bolsillos #${oldSlot + 1} y #${targetSlotIndex + 1}`, 'cyan');
+      } else {
+        showToast(`⇥ Movida al bolsillo #${targetSlotIndex + 1}`, 'cyan');
+      }
+      renderActiveBinderPockets();
+    }
+
+    // Doble capa giroscópica / cursor 3D
+    function handleHoloTilt(e, cardEl) {
+      const rect = cardEl.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const px = (x / rect.width) * 100;
+      const py = (y / rect.height) * 100;
+      const rotY = ((px - 50) / 50) * 13;
+      const rotX = ((50 - py) / 50) * 13;
+      const angle = Math.atan2(y - rect.height / 2, x - rect.width / 2) * (180 / Math.PI) + 90;
+
+      cardEl.style.transform = `rotateX(${rotX.toFixed(1)}deg) rotateY(${rotY.toFixed(1)}deg) scale(1.025)`;
+      cardEl.style.setProperty('--holo-x', `${px.toFixed(1)}%`);
+      cardEl.style.setProperty('--holo-y', `${py.toFixed(1)}%`);
+      cardEl.style.setProperty('--spark-x', `${(100 - px).toFixed(1)}%`);
+      cardEl.style.setProperty('--spark-y', `${(100 - py).toFixed(1)}%`);
+      cardEl.style.setProperty('--holo-angle', `${angle.toFixed(0)}deg`);
+    }
+
+    function resetHoloTilt(cardEl) {
+      cardEl.style.transform = 'rotateX(0deg) rotateY(0deg) scale(1)';
+    }
+
+    function addInFirstFreeSlotOfCurrentPage() {
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      const perSheet = slotsPerSheet(binder.gridFormat);
+      const pageStart = state.currentPage * perSheet;
+      const occupied = new Set(state.items.filter(i => i.binderId === binder.id).map(i => i.positionIndex));
+
+      let chosen = null;
+      for (let s = pageStart; s < Math.min(binder.maxSlots, pageStart + perSheet); s++) {
+        if (!occupied.has(s)) { chosen = s; break; }
+      }
+      if (chosen === null) {
+        for (let s = 0; s < binder.maxSlots; s++) {
+          if (!occupied.has(s)) { chosen = s; break; }
+        }
+      }
+      if (chosen === null) {
+        showToast('La vitrina está llena.', 'magenta');
+        return;
+      }
+      goToCatalogForPocket(binder.id, chosen);
+    }
+
+    function goToCatalogForPocket(binderId, slotIndex) {
+      state.activeBinderId = binderId;
+      state.selectedSlotIndex = slotIndex;
+      switchTab('catalog');
+    }
+
+    // -----------------------------------------------------------------------
+    // 6. BUSCADOR CONECTADO A APIS REALES + CONFIRMCARDDIALOG -> VITRINA
+    // -----------------------------------------------------------------------
+    function getNextAvailableSlotForBinder(binderId) {
+      const binder = state.binders.find(b => b.id === binderId);
+      const occupied = new Set(state.items.filter(i => i.binderId === binderId).map(i => i.positionIndex));
+      if (state.selectedSlotIndex !== null && !occupied.has(state.selectedSlotIndex)) {
+        return state.selectedSlotIndex;
+      }
+      for (let i = 0; i < binder.maxSlots; i++) {
+        if (!occupied.has(i)) return i;
+      }
+      return -1;
+    }
+
+    function clearSelectedSlot() {
+      state.selectedSlotIndex = null;
+      syncCatalogHeaderAndMode();
+    }
+
+    function onCatalogTargetBinderChanged(binderId) {
+      state.activeBinderId = binderId;
+      state.selectedSlotIndex = null;
+      state.batchQueue = [];
+      syncCatalogHeaderAndMode();
+    }
+
+    function syncCatalogHeaderAndMode() {
+      const sel = document.getElementById('catalog-target-binder');
+      sel.innerHTML = state.binders.map(b => `<option value="${b.id}" ${b.id === state.activeBinderId ? 'selected' : ''}>${b.title} (${getBinderCollectionLabel(b)})</option>`).join('');
+
+      const binder = state.binders.find(b => b.id === state.activeBinderId) || state.binders[0];
+      const spec = getSpec(binder.collectionCode);
+      const nextSlot = getNextAvailableSlotForBinder(binder.id);
+
+      document.getElementById('catalog-locked-badge').textContent = `🔒 Colección bloqueada: ${getBinderCollectionLabel(binder)}`;
+      document.getElementById('catalog-target-slot-display').textContent = nextSlot >= 0 ? `#${nextSlot + 1}` : 'Llena';
+      document.getElementById('clear-slot-btn').classList.toggle('hidden', state.selectedSlotIndex === null);
+
+      // Si la colección no tiene API (ej. Figuras / One Piece), salta automáticamente a Foto WebP
+      if (!spec.api && state.catalogMode !== 'photo_webp') {
+        state.catalogMode = 'photo_webp';
+      }
+      setCatalogMode(state.catalogMode, true);
+    }
+
+    function setCatalogMode(mode, skipCheck = false) {
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      const spec = getSpec(binder.collectionCode);
+
+      if (!skipCheck && !spec.api && (mode === 'search' || mode === 'batch_ocr')) {
+        showToast(`"${getBinderCollectionLabel(binder)}" usa captura física WebP (sin API externa).`, 'magenta');
+        return;
+      }
+
+      state.catalogMode = mode;
+      ['search', 'batch_ocr', 'photo_webp'].forEach(m => {
+        document.getElementById(`catalog-panel-${m}`).classList.toggle('hidden', m !== mode);
+        const btn = document.getElementById(`mode-btn-${m}`);
+        const disabled = !spec.api && (m === 'search' || m === 'batch_ocr');
+        btn.className = m === mode
+          ? 'py-3 px-3 rounded-2xl border border-solarGold bg-solarGold/15 text-solarGold text-xs sm:text-sm font-extrabold flex flex-col sm:flex-row items-center justify-center gap-1.5 transition'
+          : `py-3 px-3 rounded-2xl border border-gray-800 bg-smokedCharcoal text-pureWhite text-xs sm:text-sm font-semibold flex flex-col sm:flex-row items-center justify-center gap-1.5 transition ${disabled ? 'opacity-35' : 'hover:border-solarGold/40'}`;
+      });
+
+      if (mode === 'search') {
+        renderQuickSearchChips(spec);
+        executeApiSearchNow();
+      } else if (mode === 'batch_ocr') {
+        renderBatchPresetButtons(spec);
+        renderBatchQueue();
+      }
+    }
+
+    function renderQuickSearchChips(spec) {
+      const wrap = document.getElementById('quick-search-chips');
+      if (!spec.sampleQueries.length) {
+        wrap.innerHTML = '';
+        return;
+      }
+      wrap.innerHTML = `<span class="text-silverMuted">Búsqueda rápida en ${spec.name}:</span>` +
+        spec.sampleQueries.map(q => `
+          <button onclick="document.getElementById('api-search-input').value='${q}'; executeApiSearchNow();"
+            class="px-2.5 py-1 rounded-full bg-smokedCharcoal hover:border-solarGold border border-gray-700 text-pureWhite transition">
+            ${q}
+          </button>
+        `).join('');
+    }
+
+    function debouncedApiSearch() {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => executeApiSearchNow(), 360);
+    }
+
+    async function searchCardsFromProvider(spec, query) {
+      const q = (query || '').trim();
+      if (!q) {
+        return { source: 'local', items: FALLBACK_CATALOG[spec.code] || [] };
+      }
+
+      try {
+        if (spec.api === 'scryfall') {
+          const resp = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(q)}`);
+          if (resp.status === 404) return { source: 'live', items: [] };
+          if (!resp.ok) throw new Error('Scryfall error');
+          const data = await resp.json();
+          const items = (data.data || []).slice(0, 15).map(raw => {
+            const img = raw.image_uris?.normal || raw.card_faces?.[0]?.image_uris?.normal || '';
+            const usd = parseFloat(raw.prices?.usd || raw.prices?.usd_foil || (raw.prices?.eur ? raw.prices.eur * 1.08 : 0)) || 1.50;
+            return {
+              externalId: raw.id,
+              name: raw.printed_name || raw.name,
+              collectionCode: 'magic',
+              sourceType: 'api_scryfall',
+              imageUrl: img,
+              artSymbol: '🔮',
+              artColor: '#F3A55A',
+              estimatedPrice: usd,
+              cmc: Math.round(raw.cmc || 0),
+              expansion: raw.set_name || 'Magic Set',
+              type: raw.type_line || 'Spell',
+              oracleText: raw.oracle_text || raw.card_faces?.[0]?.oracle_text || '',
+              oracleEs: raw.printed_text || ''
+            };
+          });
+          return { source: 'live', items };
+        }
+
+        if (spec.api === 'tcgdex') {
+          const langPath = ['es', 'en', 'pt'].includes(state.lang) ? state.lang : 'en';
+          let resp = await fetch(`https://api.tcgdex.net/v2/${langPath}/cards?name=${encodeURIComponent(q)}`);
+          if (!resp.ok && langPath !== 'en') {
+            resp = await fetch(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(q)}`);
+          }
+          if (resp.status === 404) return { source: 'live', items: [] };
+          if (!resp.ok) throw new Error('TCGdex error');
+          const list = await resp.json();
+          const items = (Array.isArray(list) ? list : []).filter(c => c.image).slice(0, 15).map((raw, idx) => ({
+            externalId: raw.id,
+            name: raw.name,
+            collectionCode: 'pokemon',
+            sourceType: 'api_tcgdex',
+            imageUrl: `${raw.image}/low.webp`,
+            artSymbol: '⚡',
+            artColor: '#FFD700',
+            estimatedPrice: Number((4.5 + ((raw.name.length * 3.7 + idx * 5.2) % 65)).toFixed(2)),
+            cmc: 2,
+            expansion: `TCGdex #${raw.localId || raw.id}`,
+            type: 'Pokémon TCG Card',
+            oracleText: `Official TCGdex ID: ${raw.id}.`,
+            oracleEs: `Carta oficial TCGdex (${raw.id}).`
+          }));
+          return { source: 'live', items };
+        }
+
+        if (spec.api === 'ygoprodeck') {
+          const resp = await fetch(`https://db.ygoprodeck.com/api/v7/cardinfo.php?fname=${encodeURIComponent(q)}`);
+          if (resp.status === 400 || resp.status === 404) return { source: 'live', items: [] };
+          if (!resp.ok) throw new Error('YGOPRODeck error');
+          const data = await resp.json();
+          const items = (data.data || []).slice(0, 15).map(raw => ({
+            externalId: String(raw.id),
+            name: raw.name,
+            collectionCode: 'yugioh',
+            sourceType: 'api_ygoprodeck',
+            imageUrl: raw.card_images?.[0]?.image_url_small || '',
+            artSymbol: '🐉',
+            artColor: '#C58BFF',
+            estimatedPrice: parseFloat(raw.card_prices?.[0]?.tcgplayer_price || '2.50') || 2.50,
+            cmc: raw.level || 4,
+            expansion: raw.card_sets?.[0]?.set_name || 'Yu-Gi-Oh! TCG',
+            type: raw.type || 'Monster',
+            oracleText: raw.desc || '',
+            oracleEs: raw.desc || ''
+          }));
+          return { source: 'live', items };
+        }
+      } catch (_) {
+        // Fallback sin red
+      }
+
+      const pool = FALLBACK_CATALOG[spec.code] || [];
+      const filtered = pool.filter(c => c.name.toLowerCase().includes(q.toLowerCase()) || c.expansion.toLowerCase().includes(q.toLowerCase()));
+      return { source: 'fallback', items: filtered };
+    }
+
+    async function executeApiSearchNow() {
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      const spec = getSpec(binder.collectionCode);
+      if (!spec.api) return;
+
+      const q = document.getElementById('api-search-input').value;
+      const spinner = document.getElementById('api-search-spinner');
+      spinner.classList.remove('hidden');
+
+      const res = await searchCardsFromProvider(spec, q);
+      spinner.classList.add('hidden');
+      state.apiSearchResults = res.items;
+
+      const statusBanner = document.getElementById('api-status-banner');
+      if (res.source === 'live') {
+        statusBanner.innerHTML = `<span class="text-emeraldAura font-semibold">● Conectado en vivo a API oficial (${spec.api.toUpperCase()}) — ${res.items.length} resultados</span><span>Haz clic en una carta para confirmar e insertar en tu vitrina</span>`;
+      } else if (res.source === 'local') {
+        statusBanner.innerHTML = `<span class="text-solarGold">★ Destacados sugeridos de ${spec.name} (escribe arriba para consultar la API en vivo)</span><span>Clic en "+ Agregar a Vitrina" para abrir ConfirmCardDialog</span>`;
+      } else {
+        statusBanner.innerHTML = `<span class="text-manaCyan">⚡ Modo Offline Activo (Catálogo en caché local)</span><span>${res.items.length} coincidencias</span>`;
+      }
+
+      const grid = document.getElementById('api-results-grid');
+      if (!res.items.length) {
+        grid.innerHTML = `<div class="col-span-full text-center py-12 text-xs text-silverMuted bg-smokedCharcoal/50 rounded-2xl border border-gray-800">No se encontraron cartas para "${q}" en ${spec.name}.</div>`;
+        return;
+      }
+
+      grid.innerHTML = res.items.map((card, idx) => `
+        <div onclick="openConfirmCardModal(${idx})" class="cursor-pointer group bg-smokedCharcoal hover:bg-charcoalRaised border border-gray-800 hover:border-solarGold rounded-2xl p-3 flex flex-col justify-between transition shadow-lg">
+          <div>
+            <div class="aspect-[2.5/3.5] rounded-xl overflow-hidden mb-2.5 border border-gray-800 relative">
+              ${renderCardVisualHtml(card, true)}
+            </div>
+            <h4 class="text-xs font-bold text-pureWhite truncate group-hover:text-solarGold transition">${card.name}</h4>
+            <p class="text-[11px] text-silverMuted truncate">${card.expansion}</p>
+            <p class="text-xs font-extrabold text-solarGold mt-1">${formatMoney(card.estimatedPrice)}</p>
+          </div>
+          <button type="button" class="mt-2.5 w-full py-2 rounded-xl bg-obsidianVoid group-hover:bg-psychicMagenta group-hover:text-pureWhite border border-psychicMagenta/50 text-psychicMagenta text-xs font-extrabold transition">
+            ☁️ + Agregar (Marca API)
+          </button>
+        </div>
+      `).join('');
+    }
+
+    // ConfirmCardDialog (espejo mejorado del diálogo real de Flutter)
+    function openConfirmCardModal(resultIndex) {
+      const card = state.apiSearchResults[resultIndex];
+      if (!card) return;
+      state.pendingConfirmCard = card;
+
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      const slot = getNextAvailableSlotForBinder(binder.id);
+
+      document.getElementById('confirm-card-thumb').innerHTML = renderCardVisualHtml(card, true);
+      document.getElementById('confirm-card-name').textContent = card.name;
+      document.getElementById('confirm-card-expansion').textContent = card.expansion;
+      document.getElementById('confirm-card-dest').textContent = `Destino: ${binder.title} • Bolsillo #${slot + 1}`;
+      document.getElementById('confirm-card-oracle').textContent = card.oracleText || '';
+      document.getElementById('confirm-condition').value = 'NM';
+      document.getElementById('confirm-trade-status').value = 'wishlist_api';
+      document.getElementById('confirm-is-foil').checked = false;
+      document.getElementById('confirm-grader').value = '';
+      document.getElementById('confirm-grade-cert').value = '';
+      document.getElementById('confirm-price-usd').value = (card.estimatedPrice || 0).toFixed(2);
+      document.getElementById('confirm-cost-usd').value = '';
+      updateConfirmLocalPriceHelper();
+
+      document.getElementById('confirm-card-modal').classList.remove('hidden');
+    }
+
+    function updateConfirmLocalPriceHelper() {
+      const val = parseFloat(document.getElementById('confirm-price-usd').value) || 0;
+      document.getElementById('confirm-local-price-helper').textContent = state.currency !== 'USD' ? `Equivalente local: ${formatMoney(val)}` : '';
+    }
+
+    function closeConfirmCardModal() {
+      document.getElementById('confirm-card-modal').classList.add('hidden');
+      state.pendingConfirmCard = null;
+    }
+
+    function finalizeAddConfirmedCard() {
+      const card = state.pendingConfirmCard;
+      if (!card) return;
+
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      if (card.collectionCode !== binder.collectionCode) {
+        showToast(`Error Anti-Mezcla: La vitrina solo admite ${getBinderCollectionLabel(binder)}.`, 'magenta');
+        return;
+      }
+
+      const slot = getNextAvailableSlotForBinder(binder.id);
+      if (slot === -1) {
+        showToast('La vitrina alcanzó su capacidad máxima.', 'magenta');
+        return;
+      }
+
+      const grader = document.getElementById('confirm-grader').value;
+      const priceUsd = parseFloat(document.getElementById('confirm-price-usd').value) || 0;
+      const costRaw = document.getElementById('confirm-cost-usd').value;
+      const costUsd = costRaw !== '' ? parseFloat(costRaw) : priceUsd;
+
+      const newItem = {
+        id: 'itm_' + Date.now(),
+        binderId: binder.id,
+        collectionCode: card.collectionCode,
+        sourceType: card.sourceType,
+        isPhysicallyVerified: false,
+        name: card.name,
+        imageUrl: card.imageUrl,
+        artSymbol: card.artSymbol,
+        artColor: card.artColor,
+        isFoil: document.getElementById('confirm-is-foil').checked,
+        condition: document.getElementById('confirm-condition').value,
+        estimatedPrice: priceUsd,
+        purchaseCost: 0,
+        positionIndex: slot,
+        tradeStatus: 'wishlist_api',
+        slab: grader ? {
+          grader,
+          score: document.getElementById('confirm-grade-score').value || '10',
+          cert: document.getElementById('confirm-grade-cert').value || '90218432'
+        } : null,
+        notes: `⚠️ Agregada desde Buscador API (${card.expansion}) — Sin escaneo físico verificado.`,
+        cmc: card.cmc || 2,
+        metadata: {
+          expansion: card.expansion,
+          type: card.type || 'TCG Card',
+          oracleText: card.oracleText || '',
+          oracleEs: card.oracleEs || ''
+        }
+      };
+
+      state.items.push(newItem);
+      state.selectedSlotIndex = null;
+      state.justAddedItemId = newItem.id;
+      closeConfirmCardModal();
+
+      // Navega directo a la hoja exacta donde cayó la carta dentro de la vitrina
+      const perSheet = slotsPerSheet(binder.gridFormat);
+      state.currentPage = Math.floor(slot / perSheet);
+      switchTab('binders');
+      openBinderDetail(binder.id, true);
+      showToast(`☁️ "${newItem.name}" agregada en Bolsillo #${slot + 1} con sello público "API • SIN FÍSICO"`, 'magenta');
+    }
+
+    // -----------------------------------------------------------------------
+    // 7. PLAN 4: ESCÁNER POR LOTE (BATCH QUEUE) & WEBP REAL 1080PX
+    // -----------------------------------------------------------------------
+    function renderBatchPresetButtons(spec) {
+      const box = document.getElementById('batch-preset-buttons');
+      box.innerHTML = (spec.sampleQueries || []).map(q => `
+        <button onclick="document.getElementById('batch-manual-ocr').value='${q}'; scanSingleIntoBatchQueue();"
+          class="px-3 py-1.5 rounded-xl bg-obsidianVoid hover:border-manaCyan border border-gray-700 text-xs text-pureWhite transition">
+          📷 Detectar "${q}"
+        </button>
+      `).join('');
+    }
+
+    async function scanSingleIntoBatchQueue() {
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      const spec = getSpec(binder.collectionCode);
+      const input = document.getElementById('batch-manual-ocr');
+      const query = input.value.trim();
+      if (!query) return;
+
+      const res = await searchCardsFromProvider(spec, query);
+      if (!res.items.length) {
+        showToast(`OCR: No se halló coincidencia para "${query}"`, 'magenta');
+        return;
+      }
+      state.batchQueue.push(res.items[0]);
+      input.value = '';
+      renderBatchQueue();
+      showToast(`📷 Apilada en lote: ${res.items[0].name}`, 'cyan');
+    }
+
+    function renderBatchQueue() {
+      document.getElementById('batch-count').textContent = state.batchQueue.length;
+      document.getElementById('commit-batch-btn').disabled = state.batchQueue.length === 0;
+      const list = document.getElementById('batch-queue-list');
+      if (!state.batchQueue.length) {
+        list.innerHTML = `<div class="text-center py-10 text-xs text-silverMuted bg-obsidianVoid/60 rounded-2xl border border-gray-800">Escanea múltiples cartas seguidas para insertarlas de una sola vez.</div>`;
+        return;
+      }
+      list.innerHTML = state.batchQueue.map((c, idx) => `
+        <div class="flex items-center justify-between gap-3 bg-obsidianVoid p-2.5 rounded-xl border border-gray-800 text-xs">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-6 h-6 rounded-lg bg-manaCyan/15 text-manaCyan font-mono font-bold flex items-center justify-center shrink-0">${idx + 1}</span>
+            <div class="truncate">
+              <strong class="text-pureWhite block truncate">${c.name}</strong>
+              <span class="text-silverMuted text-[11px]">${c.expansion} • ${formatMoney(c.estimatedPrice)}</span>
+            </div>
+          </div>
+          <button onclick="state.batchQueue.splice(${idx},1); renderBatchQueue();" class="text-silverMuted hover:text-psychicMagenta px-2">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function clearBatchQueue() {
+      state.batchQueue = [];
+      renderBatchQueue();
+    }
+
+    function commitBatchToBinder() {
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      const count = state.batchQueue.length;
+      if (!count) return;
+
+      let firstSlot = null;
+      let inserted = 0;
+      for (const card of state.batchQueue) {
+        const slot = getNextAvailableSlotForBinder(binder.id);
+        if (slot === -1) break;
+        if (firstSlot === null) firstSlot = slot;
+        state.selectedSlotIndex = null;
+        const newItem = {
+          id: 'itm_' + Date.now() + '_' + inserted,
+          binderId: binder.id,
+          collectionCode: card.collectionCode,
+          sourceType: card.sourceType,
+          isPhysicallyVerified: true,
+          name: card.name,
+          imageUrl: card.imageUrl,
+          artSymbol: card.artSymbol,
+          artColor: card.artColor,
+          isFoil: true,
+          condition: 'NM',
+          estimatedPrice: card.estimatedPrice,
+          purchaseCost: card.estimatedPrice,
+          positionIndex: slot,
+          tradeStatus: 'none',
+          slab: null,
+          notes: 'Insertada mediante Escáner por Lote ML Kit.',
+          cmc: card.cmc || 2,
+          metadata: { expansion: card.expansion, type: card.type, oracleText: card.oracleText, oracleEs: card.oracleEs }
+        };
+        state.items.push(newItem);
+        state.justAddedItemId = newItem.id;
+        inserted++;
+      }
+
+      state.batchQueue = [];
+      renderBatchQueue();
+      if (firstSlot !== null) {
+        state.currentPage = Math.floor(firstSlot / slotsPerSheet(binder.gridFormat));
+      }
+      switchTab('binders');
+      openBinderDetail(binder.id, true);
+      showToast(`🚀 ¡Lote de ${inserted} cartas insertado en bolsillos consecutivos!`, 'emerald');
+    }
+
+    // Compresión WebP REAL mediante Canvas HTML5
+    function processRealWebpCompression(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const origKb = (file.size / 1024).toFixed(1);
+      document.getElementById('webp-orig-kb').textContent = `${origKb} KB`;
+
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => {
+          const maxSide = 1080;
+          let { width, height } = img;
+          if (width > maxSide || height > maxSide) {
+            if (width >= height) {
+              height = Math.round((height * maxSide) / width);
+              width = maxSide;
+            } else {
+              width = Math.round((width * maxSide) / height);
+              height = maxSide;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(blob => {
+            if (!blob) return;
+            const finalKb = (blob.size / 1024).toFixed(1);
+            const pct = Math.max(1, Math.round((1 - blob.size / file.size) * 100));
+            document.getElementById('webp-final-kb').textContent = `${finalKb} KB`;
+            document.getElementById('webp-saving-pct').textContent = `-${pct}%`;
+
+            const r2 = new FileReader();
+            r2.onloadend = () => {
+              state.compressedWebpDataUrl = r2.result;
+              document.getElementById('webp-live-preview').innerHTML = `<img src="${r2.result}" class="w-full h-full object-cover" />`;
+              showToast(`🖼️ Comprimida a WebP (${width}x${height}px • ${finalKb} KB)`, 'emerald');
+            };
+            r2.readAsDataURL(blob);
+          }, 'image/webp', 0.80);
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function submitCustomWebpItem(e) {
+      e.preventDefault();
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      const slot = getNextAvailableSlotForBinder(binder.id);
+      if (slot === -1) {
+        showToast('La vitrina está llena.', 'magenta');
+        return;
+      }
+
+      const grader = document.getElementById('custom-grader').value;
+      const newItem = {
+        id: 'itm_' + Date.now(),
+        binderId: binder.id,
+        collectionCode: binder.collectionCode,
+        sourceType: 'user_upload',
+        isPhysicallyVerified: true,
+        name: document.getElementById('custom-name').value.trim(),
+        imageUrl: state.compressedWebpDataUrl || '',
+        artSymbol: '🏆',
+        artColor: '#FFD700',
+        isFoil: document.getElementById('custom-foil').checked,
+        condition: document.getElementById('custom-condition').value,
+        estimatedPrice: parseFloat(document.getElementById('custom-price').value) || 0,
+        purchaseCost: parseFloat(document.getElementById('custom-cost').value) || 0,
+        positionIndex: slot,
+        tradeStatus: document.getElementById('custom-trade').value,
+        slab: grader ? { grader, score: document.getElementById('custom-grade-score').value || '10', cert: '71029384' } : null,
+        notes: 'Fotografía propia optimizada localmente a WebP ≤1080px.',
+        cmc: 0,
+        metadata: {
+          expansion: getBinderCollectionLabel(binder),
+          type: document.getElementById('custom-subtype').value || 'Pieza Física',
+          oracleText: 'Pieza física almacenada en formato WebP de alta eficiencia (Cloudflare R2).',
+          oracleEs: 'Pieza física almacenada en formato WebP de alta eficiencia (Cloudflare R2).'
+        }
+      };
+
+      state.items.push(newItem);
+      state.selectedSlotIndex = null;
+      state.compressedWebpDataUrl = null;
+      state.justAddedItemId = newItem.id;
+      document.getElementById('custom-name').value = '';
+
+      state.currentPage = Math.floor(slot / slotsPerSheet(binder.gridFormat));
+      switchTab('binders');
+      openBinderDetail(binder.id, true);
+      showToast(`📸 "${newItem.name}" guardada en bolsillo #${slot + 1}`, 'emerald');
+    }
+
+    // -----------------------------------------------------------------------
+    // 8. CREAR VITRINA (2 FAMILIAS, 15 COLECCIONES, REGLA FREEMIUM)
+    // -----------------------------------------------------------------------
+    function openCreateBinderModal() {
+      const canCreate = state.binders.length === 0 ||
+        state.profile.isPro ||
+        state.profile.isAdmin ||
+        state.profile.extraBinderCredits > 0 ||
+        state.profile.availableSlots >= 9;
+
+      document.getElementById('cb-locked-box').classList.toggle('hidden', canCreate);
+      document.getElementById('cb-form').classList.toggle('hidden', !canCreate);
+      setCreateBinderFamily('cards');
+      document.getElementById('create-binder-modal').classList.remove('hidden');
+    }
+
+    function closeCreateBinderModal() {
+      document.getElementById('create-binder-modal').classList.add('hidden');
+    }
+
+    function setCreateBinderFamily(fam) {
+      state.createFamily = fam;
+      document.getElementById('cb-fam-cards').className = fam === 'cards' ? 'py-2 rounded-lg font-extrabold bg-solarGold text-obsidianVoid transition' : 'py-2 rounded-lg font-semibold text-silverMuted';
+      document.getElementById('cb-fam-objects').className = fam === 'objects' ? 'py-2 rounded-lg font-extrabold bg-solarGold text-obsidianVoid transition' : 'py-2 rounded-lg font-semibold text-silverMuted';
+
+      const sel = document.getElementById('cb-collection-code');
+      sel.innerHTML = COLLECTIONS.filter(c => c.family === fam).map(c => `<option value="${c.code}">${c.monogram} — ${c.name}</option>`).join('');
+      toggleCustomCollectionInput();
+    }
+
+    function toggleCustomCollectionInput() {
+      const code = document.getElementById('cb-collection-code').value;
+      const spec = getSpec(code);
+      document.getElementById('cb-custom-name-wrap').classList.toggle('hidden', !spec.custom);
+    }
+
+    function submitCreateBinder(e) {
+      e.preventDefault();
+      const title = document.getElementById('cb-title').value.trim();
+      const code = document.getElementById('cb-collection-code').value;
+      const spec = getSpec(code);
+      const customName = document.getElementById('cb-custom-name').value.trim();
+      const grid = document.getElementById('cb-grid').value;
+      const goal = parseInt(document.getElementById('cb-master-goal').value, 10) || null;
+
+      if (spec.custom && !customName) {
+        showToast('Ingresa el nombre personalizado de la colección.', 'magenta');
+        return;
+      }
+      if (grid === '4x3' && !state.profile.isPro && !state.profile.isAdmin) {
+        showToast('★ El formato 4x3 (480 XL) requiere Aura Pro.', 'magenta');
+        return;
+      }
+
+      let maxSlots = grid === '4x3' ? 480 : (grid === '2x2' ? 160 : 360);
+      if (state.binders.length > 0 && !state.profile.isPro && !state.profile.isAdmin) {
+        if (state.profile.extraBinderCredits > 0) {
+          state.profile.extraBinderCredits -= 1;
+        } else if (state.profile.availableSlots >= 9) {
+          maxSlots = state.profile.availableSlots;
+          state.profile.availableSlots = 0;
+        }
+      }
+
+      const nb = {
+        id: 'binder_' + Date.now(),
+        title,
+        family: state.createFamily,
+        collectionCode: code,
+        customCollectionName: spec.custom ? customName : null,
+        gridFormat: grid,
+        maxSlots,
+        masterGoal: goal,
+        isFreeTier: state.binders.length === 0,
+        isPublic: true
+      };
+      state.binders.push(nb);
+      document.getElementById('cb-title').value = '';
+      closeCreateBinderModal();
+      renderAll();
+      openBinderDetail(nb.id);
+      showToast(`✨ Vitrina "${title}" creada (${grid} • ${maxSlots} espacios)`, 'emerald');
+    }
+
+    // -----------------------------------------------------------------------
+    // 9. PLAN 3: CONSTRUCTOR DE MAZOS CONECTADO AL INVENTARIO FÍSICO
+    // -----------------------------------------------------------------------
+    function findOwnedCopiesAcrossBinders(cardName) {
+      const norm = cardName.trim().toLowerCase();
+      return state.items.filter(i => i.isPhysicallyVerified !== false && i.name.trim().toLowerCase() === norm).map(item => {
+        const b = state.binders.find(x => x.id === item.binderId);
+        const sheet = Math.floor(item.positionIndex / slotsPerSheet(b ? b.gridFormat : '3x3')) + 1;
+        return {
+          binderTitle: b ? b.title : 'Vitrina',
+          sheet,
+          pocket: item.positionIndex + 1
+        };
+      });
+    }
+
+    function renderDecksWorkspace() {
+      const bar = document.getElementById('decks-selector-bar');
+      bar.innerHTML = state.decks.map(d => `
+        <button onclick="state.activeDeckId='${d.id}'; renderDecksWorkspace();"
+          class="px-4 py-2.5 rounded-2xl border text-xs font-bold shrink-0 transition ${d.id === state.activeDeckId ? 'bg-solarGold text-obsidianVoid border-solarGold' : 'bg-smokedCharcoal text-pureWhite border-gray-800 hover:border-solarGold/40'}">
+          ⚔️ ${d.title} <span class="opacity-75">(${d.format})</span>
+        </button>
+      `).join('');
+
+      const deck = state.decks.find(d => d.id === state.activeDeckId) || state.decks[0];
+      const ws = document.getElementById('active-deck-workspace');
+      if (!deck) { ws.innerHTML = ''; return; }
+
+      let totalCards = 0;
+      let ownedCards = 0;
+      let missingCostUsd = 0;
+      const curve = { '0-1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6+': 0 };
+
+      const rowsHtml = deck.entries.map((entry, idx) => {
+        totalCards += entry.qty;
+        const locs = findOwnedCopiesAcrossBinders(entry.name);
+        const have = Math.min(entry.qty, locs.length);
+        const missing = entry.qty - have;
+        ownedCards += have;
+        missingCostUsd += missing * (entry.estUsd || 5);
+
+        const c = entry.cmc || 0;
+        if (c <= 1) curve['0-1'] += entry.qty;
+        else if (c === 2) curve['2'] += entry.qty;
+        else if (c === 3) curve['3'] += entry.qty;
+        else if (c === 4) curve['4'] += entry.qty;
+        else if (c === 5) curve['5'] += entry.qty;
+        else curve['6+'] += entry.qty;
+
+        const locBadge = locs.length > 0
+          ? `<span class="text-[11px] text-emeraldAura block">✓ En posesión (${locs.length}): ${locs[0].binderTitle} • Hoja ${locs[0].sheet}, Bolsillo #${locs[0].pocket}</span>`
+          : `<span class="text-[11px] text-psychicMagenta block">✗ Faltante en tus vitrinas (Est. ${formatMoney(entry.estUsd)} c/u)</span>`;
+
+        return `
+          <div class="flex items-center justify-between gap-3 bg-obsidianVoid p-3 rounded-2xl border border-gray-800">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-smokedCharcoal border border-gray-700 font-mono text-xs font-bold text-solarGold">${entry.qty}x</span>
+                <strong class="text-xs sm:text-sm text-pureWhite truncate">${entry.name}</strong>
+                <span class="text-[10px] font-mono text-silverMuted">CMC ${entry.cmc}</span>
+              </div>
+              ${locBadge}
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button onclick="adjustDeckEntryQty(${idx}, 1)" class="w-7 h-7 rounded-lg bg-smokedCharcoal border border-gray-700 text-xs">+</button>
+              <button onclick="adjustDeckEntryQty(${idx}, -1)" class="w-7 h-7 rounded-lg bg-smokedCharcoal border border-gray-700 text-xs">−</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const maxCurve = Math.max(1, ...Object.values(curve));
+      const curveBars = Object.entries(curve).map(([label, val]) => {
+        const hPct = Math.round((val / maxCurve) * 100);
+        return `
+          <div class="flex flex-col items-center gap-1 flex-1">
+            <span class="text-[10px] font-mono text-solarGold">${val}</span>
+            <div class="w-full h-24 bg-obsidianVoid rounded-xl border border-gray-800 flex items-end p-1">
+              <div class="w-full bg-gradient-to-t from-manaCyan to-solarGold rounded-lg transition-all" style="height:${Math.max(8, hPct)}%"></div>
+            </div>
+            <span class="text-[10px] font-mono text-silverMuted">${label}</span>
+          </div>
+        `;
+      }).join('');
+
+      ws.innerHTML = `
+        <div class="lg:col-span-7 bg-smokedCharcoal border border-gray-800 rounded-3xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-display font-bold text-lg text-pureWhite">${deck.title}</h3>
+              <p class="text-xs text-silverMuted">${totalCards} cartas listadas • ${ownedCards} físicas localizadas en tus vitrinas</p>
+            </div>
+          </div>
+
+          <form onsubmit="addQuickCardToDeck(event)" class="flex gap-2">
+            <input id="deck-add-card-input" required type="text" placeholder="Añadir carta al mazo (ej. Counterspell, Pikachu)..." class="flex-1 bg-obsidianVoid border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-pureWhite focus:border-solarGold focus:outline-none">
+            <button type="submit" class="px-4 py-2.5 rounded-xl bg-solarGold text-obsidianVoid font-extrabold text-xs">+ Añadir</button>
+          </form>
+
+          <div class="space-y-2 max-h-96 overflow-y-auto pr-1">${rowsHtml}</div>
+        </div>
+
+        <div class="lg:col-span-5 space-y-4">
+          <div class="bg-smokedCharcoal border border-gray-800 rounded-3xl p-5">
+            <h4 class="font-display font-bold text-sm text-manaCyan mb-3">Estado de Inventario Cruzado</h4>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div class="bg-obsidianVoid p-3 rounded-2xl border border-emeraldAura/30">
+                <span class="text-silverMuted block">En tus Vitrinas</span>
+                <strong class="font-display text-xl text-emeraldAura">${ownedCards} / ${totalCards}</strong>
+              </div>
+              <div class="bg-obsidianVoid p-3 rounded-2xl border border-psychicMagenta/30">
+                <span class="text-silverMuted block">Costo Faltantes</span>
+                <strong class="font-display text-xl text-psychicMagenta">${formatMoney(missingCostUsd)}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-smokedCharcoal border border-gray-800 rounded-3xl p-5">
+            <h4 class="font-display font-bold text-sm text-solarGold mb-3">Curva de Maná / Energía</h4>
+            <div class="flex items-end gap-2">${curveBars}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function adjustDeckEntryQty(idx, delta) {
+      const deck = state.decks.find(d => d.id === state.activeDeckId);
+      if (!deck) return;
+      deck.entries[idx].qty += delta;
+      if (deck.entries[idx].qty <= 0) deck.entries.splice(idx, 1);
+      renderDecksWorkspace();
+    }
+
+    function addQuickCardToDeck(e) {
+      e.preventDefault();
+      const input = document.getElementById('deck-add-card-input');
+      const name = input.value.trim();
+      if (!name) return;
+      const deck = state.decks.find(d => d.id === state.activeDeckId);
+      const owned = state.items.find(i => i.name.toLowerCase() === name.toLowerCase());
+      const existing = deck.entries.find(en => en.name.toLowerCase() === name.toLowerCase());
+      if (existing) existing.qty += 1;
+      else deck.entries.push({ qty: 1, name: owned ? owned.name : name, cmc: owned?.cmc || 3, estUsd: owned?.estimatedPrice || 8.00 });
+      input.value = '';
+      renderDecksWorkspace();
+      showToast(`⚔️ "${name}" añadida al mazo`, 'cyan');
+    }
+
+    function createNewDeckPrompt() {
+      const id = 'deck_' + Date.now();
+      state.decks.push({
+        id,
+        title: `Mazo Competitivo #${state.decks.length + 1}`,
+        gameType: 'magic',
+        format: 'Standard 60',
+        entries: [{ qty: 4, name: 'Sheoldred, the Apocalypse', cmc: 4, estUsd: 78.00 }]
+      });
+      state.activeDeckId = id;
+      renderDecksWorkspace();
+      showToast('⚔️ Nuevo mazo creado', 'gold');
+    }
+
+    function openImportDeckModal() {
+      const deck = state.decks.find(d => d.id === state.activeDeckId);
+      document.getElementById('deck-io-textarea').value = deck.entries.map(e => `${e.qty} ${e.name}`).join('\n');
+      document.getElementById('deck-io-modal').classList.remove('hidden');
+    }
+
+    function copyDecklistText() {
+      const ta = document.getElementById('deck-io-textarea');
+      ta.select();
+      document.execCommand('copy');
+      showToast('📋 Decklist copiado al portapapeles', 'emerald');
+    }
+
+    function applyImportedDecklist() {
+      const deck = state.decks.find(d => d.id === state.activeDeckId);
+      const lines = document.getElementById('deck-io-textarea').value.split('\n').map(l => l.trim()).filter(Boolean);
+      deck.entries = lines.map(line => {
+        const m = line.match(/^(\d+)x?\s+(.+)$/i);
+        const qty = m ? parseInt(m[1], 10) : 1;
+        const name = m ? m[2].trim() : line;
+        const owned = state.items.find(i => i.name.toLowerCase() === name.toLowerCase());
+        return { qty, name, cmc: owned?.cmc || 3, estUsd: owned?.estimatedPrice || 6.50 };
+      });
+      document.getElementById('deck-io-modal').classList.add('hidden');
+      renderDecksWorkspace();
+      showToast('📥 Decklist importado y cruzado con tus vitrinas', 'emerald');
+    }
+
+    // -----------------------------------------------------------------------
+    // 10. FICHA DE PIEZA (3 TABS + AURA AI + ENVIAR A MAZO)
+    // -----------------------------------------------------------------------
+    function openItemDetailModal(itemId, isPublic) {
+      state.selectedModalItemId = itemId;
+      state.isPublicModal = isPublic;
+      const item = state.items.find(i => i.id === itemId);
+      if (!item) return;
+      const binder = state.binders.find(b => b.id === item.binderId);
+
+      const isVerified = item.isPhysicallyVerified !== false;
+      document.getElementById('modal-item-source').textContent = isVerified
+        ? `📸 ESCANEADA (${item.sourceType.replace('api_', '').toUpperCase()})`
+        : `☁️ AGREGADA DESDE API (SIN FÍSICO)`;
+      document.getElementById('modal-item-source').className = isVerified
+        ? 'text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-emeraldAura/15 border border-emeraldAura/50 text-emeraldAura font-bold'
+        : 'text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-psychicMagenta/20 border border-psychicMagenta/60 text-psychicMagenta font-extrabold';
+
+      const verBanner = document.getElementById('modal-verification-banner');
+      if (isVerified) {
+        verBanner.innerHTML = `
+          <div class="px-3 py-2 rounded-xl bg-emeraldAura/10 border border-emeraldAura/40 text-[11px] text-emeraldAura font-semibold flex items-center gap-2">
+            <span>📸</span>
+            <span>Posesión Física Verificada: Esta pieza fue capturada mediante escáner óptico / fotografía real.</span>
+          </div>
+        `;
+      } else {
+        verBanner.innerHTML = `
+          <div class="p-3 rounded-xl bg-psychicMagenta/10 border border-psychicMagenta/50 text-[11px] space-y-2">
+            <div class="text-psychicMagenta font-extrabold flex items-center gap-1.5">
+              <span>☁️</span>
+              <span>Aviso Público: El coleccionista NO ha verificado tener esta carta físicamente</span>
+            </div>
+            <p class="text-silverMuted leading-relaxed">Fue agregada desde el buscador de API como referencia o Wishlist. No suma al patrimonio físico ni puede ponerse en venta/cambio.</p>
+            ${!isPublic ? `<button onclick="verifyModalItemByScanning()" class="w-full py-2 rounded-lg bg-manaCyan text-obsidianVoid font-extrabold text-xs hover:brightness-105 transition">📷 ¡Ya la tengo! Escanear ejemplar físico ahora para verificarla</button>` : ''}
+          </div>
+        `;
+      }
+
+      const slabPill = document.getElementById('modal-item-slab-pill');
+      if (item.slab) {
+        slabPill.textContent = `${item.slab.grader} ${item.slab.score} • #${item.slab.cert}`;
+        slabPill.classList.remove('hidden');
+      } else {
+        slabPill.classList.add('hidden');
+      }
+
+      document.getElementById('modal-item-name').textContent = item.name;
+      document.getElementById('modal-item-set').textContent = `${item.metadata.expansion} • ${item.metadata.type}`;
+
+      document.getElementById('modal-holo-stage').innerHTML = `
+        <div onmousemove="handleHoloTilt(event, this)" onmouseleave="resetHoloTilt(this)"
+          class="holo-card w-full aspect-[2.5/3.65] rounded-2xl overflow-hidden border-2 ${!isVerified ? 'border-dashed border-psychicMagenta' : (item.isFoil ? 'border-solarGold shadow-2xl shadow-solarGold/25' : 'border-gray-700')} bg-obsidianVoid flex flex-col">
+          ${getSlabHeaderHtml(item.slab)}
+          <div class="relative flex-1 min-h-0">
+            ${renderCardVisualHtml(item, false)}
+            ${item.isFoil && isVerified ? '<div class="holo-foil-layer"></div><div class="holo-sparkle-layer"></div>' : ''}
+            ${getUnverifiedApiWatermarkHtml(item)}
+          </div>
+        </div>
+      `;
+
+      document.getElementById('modal-spec-price').textContent = isVerified ? formatMoney(item.estimatedPrice) : `${formatMoney(item.estimatedPrice)} (Ref. API)`;
+      const diff = (item.estimatedPrice || 0) - (item.purchaseCost ?? item.estimatedPrice ?? 0);
+      const roiPct = item.purchaseCost ? Math.round((diff / item.purchaseCost) * 100) : 0;
+      document.getElementById('modal-spec-roi').textContent = isVerified
+        ? `${diff >= 0 ? '+' : ''}${formatMoney(diff)} (${diff >= 0 ? '+' : ''}${roiPct}%)`
+        : 'No aplica (Sin físico)';
+      document.getElementById('modal-spec-oracle').textContent = item.metadata.oracleText || item.notes || '';
+
+      document.getElementById('ai-quota-display').textContent = state.profile.isPro ? 'Ilimitado (Aura Pro)' : `${state.profile.aiDailyRemaining} / 3 gratis`;
+      document.getElementById('ai-analysis-box').classList.add('hidden');
+
+      const sheet = Math.floor(item.positionIndex / slotsPerSheet(binder?.gridFormat || '3x3')) + 1;
+      document.getElementById('modal-slot-loc').textContent = `Hoja ${sheet} • Bolsillo #${item.positionIndex + 1}`;
+      document.getElementById('modal-cond-val').textContent = item.condition;
+      document.getElementById('modal-trade-select').value = isVerified ? (item.tradeStatus || 'none') : 'none';
+      document.getElementById('modal-trade-select').disabled = isPublic || !isVerified;
+
+      document.getElementById('modal-delete-btn').classList.toggle('hidden', isPublic);
+      document.getElementById('modal-add-deck-btn').classList.toggle('hidden', isPublic);
+      document.getElementById('modal-report-btn').classList.toggle('hidden', !isPublic);
+
+      setItemModalTab('specs');
+      document.getElementById('item-detail-modal').classList.remove('hidden');
+    }
+
+    function closeItemDetailModal() {
+      document.getElementById('item-detail-modal').classList.add('hidden');
+    }
+
+    function setItemModalTab(tab) {
+      ['specs', 'ai', 'showcase'].forEach(t => {
+        document.getElementById(`item-tab-${t}`).classList.toggle('hidden', t !== tab);
+      });
+      document.querySelectorAll('.item-tab-btn').forEach(btn => {
+        const active = btn.getAttribute('data-item-tab') === tab;
+        btn.className = active
+          ? 'item-tab-btn py-1.5 px-2 rounded-lg text-xs font-extrabold bg-solarGold text-obsidianVoid transition'
+          : 'item-tab-btn py-1.5 px-2 rounded-lg text-xs font-medium text-silverMuted hover:text-pureWhite transition';
+      });
+    }
+
+    function translateModalOracleOffline() {
+      const item = state.items.find(i => i.id === state.selectedModalItemId);
+      if (!item) return;
+      document.getElementById('modal-spec-oracle').textContent = item.metadata.oracleEs || `[Traducción Offline ML Kit]: ${item.metadata.oracleText}`;
+      showToast('🌐 Efecto traducido localmente con Google ML Kit', 'cyan');
+    }
+
+    function runAuraAiForModalItem() {
+      const item = state.items.find(i => i.id === state.selectedModalItemId);
+      if (!item) return;
+      if (!state.profile.isPro && state.profile.aiDailyRemaining <= 0) {
+        showToast('Agotaste tus 3 análisis diarios. Activa Aura Pro en Perfil.', 'magenta');
+        return;
+      }
+      if (!state.profile.isPro) {
+        state.profile.aiDailyRemaining -= 1;
+        document.getElementById('ai-quota-display').textContent = `${state.profile.aiDailyRemaining} / 3 gratis`;
+      }
+      const box = document.getElementById('ai-analysis-box');
+      box.classList.remove('hidden');
+      box.innerHTML = `
+        <p class="font-bold text-solarGold">🧠 Sinergia Estratégica para ${item.name}:</p>
+        <p class="text-silverMuted">Pieza ancla en arquetipos Midrange/Combo. Alta liquidez en Tradelist de torneos (${formatMoney(item.estimatedPrice)}).</p>
+        <p class="font-bold text-manaCyan pt-1">⚡ Recomendación de Bóveda:</p>
+        <p class="text-silverMuted">${item.slab ? `Certificación ${item.slab.grader} ${item.slab.score} protege su prima coleccionable.` : 'Candidata ideal para doble funda y primera hoja de exhibición.'}</p>
+      `;
+    }
+
+    function verifyModalItemByScanning() {
+      const item = state.items.find(i => i.id === state.selectedModalItemId);
+      if (!item) return;
+      item.isPhysicallyVerified = true;
+      item.tradeStatus = 'none';
+      item.purchaseCost = item.estimatedPrice;
+      item.notes = '📸 Verificada posteriormente mediante escaneo óptico ML Kit del ejemplar físico.';
+      openItemDetailModal(item.id, false);
+      renderAll();
+      showToast(`📸 ¡"${item.name}" verificada como Pieza Física Escaneada!`, 'emerald');
+    }
+
+    function updateModalItemTradeStatus(status) {
+      const item = state.items.find(i => i.id === state.selectedModalItemId);
+      if (!item) return;
+      if (item.isPhysicallyVerified === false) {
+        showToast('No puedes vender ni intercambiar una carta agregada por API sin escanearla físicamente.', 'magenta');
+        return;
+      }
+      item.tradeStatus = status;
+      renderActiveBinderPockets();
+      showToast('Estado Tradelist actualizado', 'cyan');
+    }
+
+    function addModalItemToActiveDeck() {
+      const item = state.items.find(i => i.id === state.selectedModalItemId);
+      const deck = state.decks.find(d => d.id === state.activeDeckId) || state.decks[0];
+      if (!item || !deck) return;
+      const ex = deck.entries.find(e => e.name.toLowerCase() === item.name.toLowerCase());
+      if (ex) ex.qty += 1;
+      else deck.entries.push({ qty: 1, name: item.name, cmc: item.cmc || 3, estUsd: item.estimatedPrice || 5 });
+      showToast(`⚔️ "${item.name}" vinculada a "${deck.title}"`, 'emerald');
+    }
+
+    function deleteModalItem() {
+      state.items = state.items.filter(i => i.id !== state.selectedModalItemId);
+      closeItemDetailModal();
+      renderActiveBinderPockets();
+      showToast('Pieza retirada del bolsillo', 'gold');
+    }
+
+    // -----------------------------------------------------------------------
+    // 11. PLAN 2: VISTA PÚBLICA + GENERADOR REAL DE PÓSTER QR EN CANVAS
+    // -----------------------------------------------------------------------
+    function openPublicPreview() {
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      const bItems = state.items.filter(i => i.binderId === binder.id);
+      const unverifiedCount = bItems.filter(i => i.isPhysicallyVerified === false).length;
+      const trustBadge = document.getElementById('pub-trust-badge');
+      if (unverifiedCount === 0) {
+        trustBadge.textContent = '🛡️ 100% Física Escaneada';
+        trustBadge.className = 'text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emeraldAura/15 border border-emeraldAura/50 text-emeraldAura';
+      } else {
+        trustBadge.textContent = `⚠️ Contiene ${unverifiedCount} carta(s) agregada(s) desde API (No físicas)`;
+        trustBadge.className = 'text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-psychicMagenta/20 border border-psychicMagenta/50 text-psychicMagenta';
+      }
+
+      document.getElementById('pub-title').textContent = binder.title;
+      document.getElementById('pub-url').textContent = `https://auradeck.app/u/${state.profile.username}/${binder.id}`;
+      document.getElementById('pub-contact-handle').textContent = state.profile.contactHandle;
+      setPublicFilter('all');
+      document.getElementById('public-preview-modal').classList.remove('hidden');
+    }
+
+    function closePublicPreview() {
+      document.getElementById('public-preview-modal').classList.add('hidden');
+    }
+
+    function setPublicFilter(f) {
+      state.publicFilter = f;
+      document.querySelectorAll('.pub-filter-btn').forEach(btn => {
+        const active = btn.getAttribute('data-pub-filter') === f;
+        btn.className = active
+          ? 'pub-filter-btn px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-solarGold text-obsidianVoid transition'
+          : 'pub-filter-btn px-3.5 py-1.5 rounded-full text-xs font-semibold bg-smokedCharcoal text-silverMuted border border-gray-700 transition';
+      });
+
+      const list = state.items.filter(i => {
+        if (i.binderId !== state.activeBinderId) return false;
+        if (f === 'all') return true;
+        if (f === 'verified_only') return i.isPhysicallyVerified !== false;
+        return i.isPhysicallyVerified !== false && i.tradeStatus === f;
+      });
+      const grid = document.getElementById('public-items-grid');
+      if (!list.length) {
+        grid.innerHTML = `<div class="col-span-full text-center py-12 text-xs text-silverMuted">No hay piezas bajo este filtro en la vitrina pública.</div>`;
+        return;
+      }
+      grid.innerHTML = list.map(item => {
+        const isVerified = item.isPhysicallyVerified !== false;
+        return `
+        <div onclick="openItemDetailModal('${item.id}', true)" class="holo-stage cursor-pointer">
+          <div onmousemove="handleHoloTilt(event, this)" onmouseleave="resetHoloTilt(this)"
+            class="holo-card w-full aspect-[2.5/3.65] rounded-2xl overflow-hidden border ${!isVerified ? 'border-dashed border-psychicMagenta/75 opacity-90' : (item.isFoil ? 'border-solarGold/65' : 'border-gray-700')} bg-obsidianVoid flex flex-col">
+            ${getSlabHeaderHtml(item.slab)}
+            <div class="relative flex-1 min-h-0">
+              ${renderCardVisualHtml(item, true)}
+              ${item.isFoil && isVerified ? '<div class="holo-foil-layer"></div><div class="holo-sparkle-layer"></div>' : ''}
+              ${getUnverifiedApiWatermarkHtml(item)}
+              <div class="absolute top-2 left-2">${getTradeBadgeHtml(item.tradeStatus, isVerified)}</div>
+              <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-obsidianVoid via-obsidianVoid/85 to-transparent p-2.5 pt-5">
+                <p class="text-xs font-bold text-pureWhite truncate">${item.name}</p>
+                <p class="text-[11px] font-bold ${isVerified ? 'text-solarGold' : 'text-silverMuted line-through'}">${formatMoney(item.estimatedPrice)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `}).join('');
+    }
+
+    function copyPublicUrl() {
+      const binder = state.binders.find(b => b.id === state.activeBinderId);
+      const url = `https://auradeck.app/u/${state.profile.username}/${binder.id}`;
+      navigator.clipboard?.writeText(url);
+      showToast(`🔗 Deep link copiado: ${url}`, 'gold');
+    }
+
+    function contactCollectorSafe() {
+      showToast(`💬 Canal seguro copiado: ${state.profile.contactHandle} (Sin exponer teléfono privado)`, 'cyan');
+    }
+
+    function openReportModal() {
+      document.getElementById('report-modal').classList.remove('hidden');
+    }
+
+    function submitUgcReport(reason) {
+      const item = state.items.find(i => i.id === state.selectedModalItemId);
+      state.reports.unshift({
+        id: 'rep_' + Date.now(),
+        itemName: item ? item.name : 'Vitrina Pública',
+        reason,
+        status: 'pending',
+        date: 'Ahora mismo'
+      });
+      document.getElementById('report-modal').classList.add('hidden');
+      showToast('🛡️ Reporte UGC enviado al panel de moderación.', 'magenta');
+    }
+
+    // Dibujo en Canvas de Póster QR para Torneos / Historias
+    function openQrPosterModal() {
+      const binder = state.binders.find(b => b.id === state.activeBinderId) || state.binders[0];
+      const bItems = state.items.filter(i => i.binderId === binder.id && i.isPhysicallyVerified !== false);
+      const totalUsd = bItems.reduce((s, i) => s + (i.estimatedPrice || 0), 0);
+      const tradeCount = bItems.filter(i => i.tradeStatus === 'for_trade' || i.tradeStatus === 'for_sale').length;
+      const top3 = [...bItems].sort((a, b) => (b.estimatedPrice || 0) - (a.estimatedPrice || 0)).slice(0, 3);
+      const url = `auradeck.app/u/${state.profile.username}/${binder.id}`;
+
+      const canvas = document.getElementById('qr-poster-canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Fondo Obsidian de Lujo
+      const grad = ctx.createLinearGradient(0, 0, 540, 675);
+      grad.addColorStop(0, '#12141E');
+      grad.addColorStop(0.5, '#06070B');
+      grad.addColorStop(1, '#141108');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 540, 675);
+
+      // Marco dorado doble
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(18, 18, 504, 639);
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(26, 26, 488, 623);
+
+      // Encabezado
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 28px "Space Grotesk", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('◆ AURADECK SHOWCASE ◆', 270, 68);
+
+      ctx.fillStyle = '#F8FAFC';
+      ctx.font = 'bold 22px "Space Grotesk", sans-serif';
+      ctx.fillText(binder.title.slice(0, 32), 270, 106);
+
+      ctx.fillStyle = '#94A3B8';
+      ctx.font = '14px Inter, sans-serif';
+      ctx.fillText(`@${state.profile.username} • ${getBinderCollectionLabel(binder)}`, 270, 132);
+
+      // Matriz QR estilizada determinista a partir de la URL
+      const qrSize = 190;
+      const qx = (540 - qrSize) / 2;
+      const qy = 158;
+      ctx.fillStyle = '#F8FAFC';
+      ctx.fillRect(qx - 12, qy - 12, qrSize + 24, qrSize + 24);
+
+      const cells = 21;
+      const cellPx = qrSize / cells;
+      let hash = 2166136261;
+      for (let i = 0; i < url.length; i++) hash = Math.imul(hash ^ url.charCodeAt(i), 16777619);
+
+      ctx.fillStyle = '#06070B';
+      for (let r = 0; r < cells; r++) {
+        for (let c = 0; c < cells; c++) {
+          const inFinder = (r < 7 && c < 7) || (r < 7 && c >= cells - 7) || (r >= cells - 7 && c < 7);
+          if (inFinder) {
+            const lr = r < 7 ? r : r - (cells - 7);
+            const lc = c < 7 ? c : c - (cells - 7);
+            if (lr === 0 || lr === 6 || lc === 0 || lc === 6 || (lr >= 2 && lr <= 4 && lc >= 2 && lc <= 4)) {
+              ctx.fillRect(qx + c * cellPx, qy + r * cellPx, cellPx + 0.4, cellPx + 0.4);
+            }
+          } else {
+            const bit = ((hash >>> ((r * 7 + c * 13) % 28)) ^ (r * 31 + c * 17)) & 1;
+            if (bit) ctx.fillRect(qx + c * cellPx, qy + r * cellPx, cellPx + 0.3, cellPx + 0.3);
+          }
+        }
+      }
+
+      // Métricas
+      ctx.fillStyle = '#00E5FF';
+      ctx.font = 'bold 15px Inter, sans-serif';
+      ctx.fillText(`Valor Vitrina: ${formatMoney(totalUsd)}   |   En Tradelist: ${tradeCount} piezas`, 270, 396);
+
+      // Top 3 Joyas
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 14px "Space Grotesk", sans-serif';
+      ctx.fillText('TOP JOYAS DESTACADAS', 270, 434);
+
+      top3.forEach((it, idx) => {
+        const ry = 452 + idx * 44;
+        ctx.fillStyle = '#12141E';
+        ctx.fillRect(48, ry, 444, 36);
+        ctx.strokeStyle = 'rgba(255,215,0,0.35)';
+        ctx.strokeRect(48, ry, 444, 36);
+
+        ctx.fillStyle = '#F8FAFC';
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 13px Inter, sans-serif';
+        ctx.fillText(`${idx + 1}. ${it.name.slice(0, 28)} ${it.slab ? `[${it.slab.grader} ${it.slab.score}]` : ''}`, 62, ry + 23);
+
+        ctx.fillStyle = '#00FF87';
+        ctx.textAlign = 'right';
+        ctx.fillText(formatMoney(it.estimatedPrice), 478, ry + 23);
+      });
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#94A3B8';
+      ctx.font = '12px monospace';
+      ctx.fillText(url, 270, 628);
+
+      document.getElementById('qr-poster-modal').classList.remove('hidden');
+    }
+
+    function closeQrPosterModal() {
+      document.getElementById('qr-poster-modal').classList.add('hidden');
+    }
+
+    function downloadQrPosterPng() {
+      const canvas = document.getElementById('qr-poster-canvas');
+      const a = document.createElement('a');
+      a.download = `auradeck-qr-${state.activeBinderId}.png`;
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      showToast('⬇️ Póster QR descargado en PNG', 'emerald');
+    }
+
+    // -----------------------------------------------------------------------
+    // 12. PLAN 5: PERFIL, PLUSVALÍA ROI, SPACE BANK, TIENDA & ADMIN
+    // -----------------------------------------------------------------------
+    function renderProfileView() {
+      const verifiedItems = state.items.filter(i => i.isPhysicallyVerified !== false);
+      const marketUsd = verifiedItems.reduce((s, i) => s + (i.estimatedPrice || 0), 0);
+      const costUsd = verifiedItems.reduce((s, i) => s + (i.purchaseCost ?? i.estimatedPrice ?? 0), 0);
+      const roiUsd = marketUsd - costUsd;
+      const roiPct = costUsd > 0 ? Math.round((roiUsd / costUsd) * 100) : 0;
+      const slabsCount = verifiedItems.filter(i => i.slab).length;
+      const tradeCount = verifiedItems.filter(i => i.tradeStatus === 'for_trade' || i.tradeStatus === 'for_sale').length;
+      const allocated = state.binders.reduce((s, b) => s + b.maxSlots, 0);
+
+      document.getElementById('stat-market-value').textContent = formatMoney(marketUsd);
+      document.getElementById('stat-cost-basis').textContent = formatMoney(costUsd);
+      document.getElementById('stat-net-roi').textContent = `${roiUsd >= 0 ? '+' : ''}${formatMoney(roiUsd)} (${roiUsd >= 0 ? '+' : ''}${roiPct}%)`;
+      document.getElementById('stat-slabs-count').textContent = slabsCount;
+      document.getElementById('stat-trade-count').textContent = tradeCount;
+
+      document.getElementById('bank-allocated').textContent = allocated;
+      document.getElementById('bank-available').textContent = state.profile.availableSlots;
+      document.getElementById('bank-credits').textContent = `${state.profile.extraBinderCredits} créditos`;
+      document.getElementById('header-slots-bank').textContent = `${state.profile.availableSlots} slots`;
+      document.getElementById('header-credits').textContent = state.profile.extraBinderCredits;
+
+      const proBadge = document.getElementById('profile-pro-badge');
+      const headerBadge = document.getElementById('header-plan-badge');
+      const proBtn = document.getElementById('pro-btn-label');
+
+      if (state.profile.isPro) {
+        proBadge.textContent = '★ Aura Pro Activo';
+        proBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-solarGold/20 text-solarGold border border-solarGold font-bold';
+        headerBadge.textContent = 'Aura Pro';
+        headerBadge.className = 'ml-1.5 text-[10px] uppercase px-2 py-0.5 rounded-full bg-solarGold text-obsidianVoid font-extrabold';
+        proBtn.textContent = '✓ Aura Pro Activo (Clic para pausar prueba)';
+      } else {
+        proBadge.textContent = 'Plan Gratuito';
+        proBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-obsidianVoid text-silverMuted border border-gray-700 font-semibold';
+        headerBadge.textContent = 'Gratis';
+        headerBadge.className = 'ml-1.5 text-[10px] uppercase px-2 py-0.5 rounded-full bg-smokedCharcoal border border-gray-700 text-silverMuted font-semibold';
+        proBtn.textContent = 'Activar USD $4.99/mes';
+      }
+
+      renderAdminModerationList();
+    }
+
+    function buyStoreProduct(prod) {
+      if (prod === 'sheet1') {
+        state.profile.availableSlots += 9;
+        showToast('❖ +9 espacios añadidos a tu Space Bank', 'cyan');
+      } else if (prod === 'sheet10') {
+        state.profile.availableSlots += 90;
+        showToast('❖ +90 espacios (10 hojas) añadidos a tu Space Bank', 'cyan');
+      } else if (prod === 'binder1') {
+        state.profile.extraBinderCredits += 1;
+        showToast('💳 +1 Crédito de Vitrina Estándar (360 espacios)', 'gold');
+      } else if (prod === 'pro') {
+        state.profile.isPro = !state.profile.isPro;
+        showToast(state.profile.isPro ? '★ ¡Aura Pro Activado! Grillas 4x3 XL y Vitrinas ilimitadas desbloqueadas.' : 'Suscripción Pro desactivada.', 'gold');
+      }
+      renderProfileView();
+    }
+
+    function updateContactHandle(val) {
+      state.profile.contactHandle = val.trim() || '@coleccionista_aura';
+      showToast('Canal de contacto público actualizado', 'cyan');
+    }
+
+    function toggleAdminMode(checked) {
+      state.profile.isAdmin = checked;
+      document.getElementById('admin-moderation-panel').classList.toggle('hidden', !checked);
+      renderAdminModerationList();
+    }
+
+    function renderAdminModerationList() {
+      const list = document.getElementById('reports-list');
+      list.innerHTML = state.reports.map((r, i) => `
+        <div class="bg-obsidianVoid border border-gray-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <strong class="text-pureWhite">${r.itemName}</strong>
+            <span class="text-silverMuted block">${r.reason} • ${r.date}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-full text-[10px] uppercase font-bold ${r.status === 'pending' ? 'bg-psychicMagenta/20 text-psychicMagenta' : 'bg-emeraldAura/20 text-emeraldAura'}">${r.status}</span>
+            ${r.status === 'pending' ? `<button onclick="state.reports[${i}].status='reviewed'; renderAdminModerationList();" class="px-2.5 py-1 rounded-lg bg-emeraldAura text-obsidianVoid font-bold">Marcar Revisado</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderAll() {
+      renderBindersList();
+      renderProfileView();
+      if (!document.getElementById('binder-detail-subview').classList.contains('hidden')) {
+        renderActiveBinderPockets();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setLanguage('es');
+      renderAll();
+    });
+  </script>
+</body>
+</html>

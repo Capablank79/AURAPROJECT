@@ -40,7 +40,23 @@ abstract interface class BinderRepository {
 
   Future<ItemModel> updateItem(ItemModel item);
 
+  Future<void> swapItemPositions({
+    required String binderId,
+    required int fromPosition,
+    required int toPosition,
+  });
+
   Future<void> deleteItem(String itemId);
+
+  Future<List<TrashedItemRecord>> getTrashedItems();
+
+  Future<TrashedItemRecord?> moveItemToTrash(String itemId);
+
+  Future<ItemModel> restoreItemFromTrash(String itemId);
+
+  Future<void> permanentlyDeleteFromTrash(String itemId);
+
+  Future<void> emptyTrash();
 
   Future<BinderModel?> getPublicBinder(String binderId);
 
@@ -49,6 +65,11 @@ abstract interface class BinderRepository {
     bool? isAdmin,
     int? extraBinderCredits,
     int? availableSlots,
+  });
+
+  Future<ProfileModel> updateProfileIdentity({
+    String? displayName,
+    String? tradeContact,
   });
 }
 

@@ -1,17 +1,21 @@
 import 'dart:async';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/collections/collection_registry.dart';
-import '../../../core/providers/app_providers.dart';
+import '../../../core/services/ml_kit_service.dart';
 import '../../../core/theme/aura_colors.dart';
+import '../../../core/utils/card_art_hasher.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../data/catalog_repository.dart';
 import '../providers/catalog_providers.dart';
+import 'widgets/scanner_ar_hud.dart';
 
 class CardScannerScreen extends ConsumerStatefulWidget {
   const CardScannerScreen({
@@ -30,12 +34,19 @@ class CardScannerScreen extends ConsumerStatefulWidget {
 class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
     with WidgetsBindingObserver {
   CameraController? _controller;
-  Timer? _autoScanTimer;
   bool _initializing = true;
   bool _processing = false;
+  bool _streaming = false;
   bool _cameraUnavailable = false;
-  CatalogResult? _detectedCard;
-  String? _lastQueriedTitle;
+
+  DateTime _lastStreamCheck = DateTime.fromMillisecondsSinceEpoch(0);
+  String? _pendingStableTitle;
+  int _stabilityHits = 0;
+
+  List<CatalogResult> _detectedCandidates = const [];
+  CardScanMatch? _detectedMatch;
+  String? _proofImageUrl;
+  int? _capturedArtHash;
 
   @override
   void initState() {
@@ -51,7 +62,7 @@ class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
       return;
     }
     if (state == AppLifecycleState.inactive) {
-      _autoScanTimer?.cancel();
+      _stopStreamSafely();
       controller.dispose();
       _controller = null;
     } else if (state == AppLifecycleState.resumed) {
@@ -71,10 +82,14 @@ class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
         }
         return;
       }
+      final formatGroup = defaultTargetPlatform == TargetPlatform.iOS
+          ? ImageFormatGroup.bgra8888
+          : ImageFormatGroup.nv21;
       final controller = CameraController(
         cameras.first,
         ResolutionPreset.medium,
         enableAudio: false,
+        imageFormatGroup: formatGroup,
       );
       await controller.initialize();
       if (!mounted) {
@@ -86,51 +101,145 @@ class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
         _initializing = false;
         _cameraUnavailable = false;
       });
-      _startAutoScanLoop();
+      await _startOpticalStream();
     } on CameraException {
-      if (mounted) {
-        setState(() {
-          _initializing = false;
-          _cameraUnavailable = true;
-        });
-      }
+      _markCameraUnavailable();
     } on MissingPluginException {
-      if (mounted) {
-        setState(() {
-          _initializing = false;
-          _cameraUnavailable = true;
-        });
-      }
+      _markCameraUnavailable();
     } on PlatformException {
-      if (mounted) {
-        setState(() {
-          _initializing = false;
-          _cameraUnavailable = true;
-        });
-      }
+      _markCameraUnavailable();
     }
   }
 
-  void _startAutoScanLoop() {
-    _autoScanTimer?.cancel();
-    if (widget.provider == null) {
+  void _markCameraUnavailable() {
+    if (mounted) {
+      setState(() {
+        _initializing = false;
+        _cameraUnavailable = true;
+      });
+    }
+  }
+
+  Future<void> _startOpticalStream() async {
+    final controller = _controller;
+    if (controller == null ||
+        !controller.value.isInitialized ||
+        _streaming ||
+        widget.provider == null) {
       return;
     }
-    _autoScanTimer = Timer.periodic(const Duration(milliseconds: 1600), (_) {
-      if (!mounted ||
-          _processing ||
-          _detectedCard != null ||
-          _controller == null ||
-          !_controller!.value.isInitialized) {
+    try {
+      await controller.startImageStream(_onCameraFrame);
+      if (mounted) {
+        setState(() => _streaming = true);
+      }
+    } catch (_) {
+      // Si el emulador no soporta startImageStream, queda activo el disparo manual.
+    }
+  }
+
+  Future<void> _stopStreamSafely() async {
+    final controller = _controller;
+    if (controller != null && _streaming) {
+      try {
+        await controller.stopImageStream();
+      } catch (_) {}
+    }
+    _streaming = false;
+  }
+
+  Future<void> _onCameraFrame(CameraImage image) async {
+    if (!mounted || _processing || _detectedCandidates.isNotEmpty) {
+      return;
+    }
+    final now = DateTime.now();
+    if (now.difference(_lastStreamCheck).inMilliseconds < 450) {
+      return;
+    }
+    _lastStreamCheck = now;
+
+    final inputImage = _buildInputImage(image);
+    if (inputImage == null) {
+      return;
+    }
+    _processing = true;
+    try {
+      final dHash = image.planes.isNotEmpty
+          ? CardArtHasher.computeLuminanceDHash(
+              yPlane: image.planes.first.bytes,
+              width: image.width,
+              height: image.height,
+              bytesPerRow: image.planes.first.bytesPerRow,
+            )
+          : 0;
+      final lang = Localizations.localeOf(context).languageCode;
+      final match = await ref
+          .read(mlKitServiceProvider)
+          .extractCardDataFromInputImage(
+            inputImage,
+            frameSize: Size(image.width.toDouble(), image.height.toDouble()),
+            languageCode: lang,
+          );
+      if (!mounted || match.title.isEmpty) {
         return;
       }
-      _capture(silent: true);
-    });
+
+      // Estabilidad tipo MagicFrame: confirma inmediato si leyó Set/Número,
+      // o al repetir el mismo título en 2 frames consecutivos.
+      final normalized = match.title.toLowerCase();
+      final highConfidence =
+          match.collectorNumber != null || match.setCode != null;
+      if (highConfidence || _pendingStableTitle == normalized) {
+        _stabilityHits++;
+      } else {
+        _pendingStableTitle = normalized;
+        _stabilityHits = 1;
+      }
+      if (!highConfidence && _stabilityHits < 2) {
+        return;
+      }
+
+      await _resolveCatalogCandidates(
+        match,
+        artHash: dHash,
+        silent: true,
+      );
+    } finally {
+      _processing = false;
+    }
+  }
+
+  InputImage? _buildInputImage(CameraImage image) {
+    final controller = _controller;
+    if (controller == null || image.planes.isEmpty) {
+      return null;
+    }
+    final rotation =
+        InputImageRotationValue.fromRawValue(
+          controller.description.sensorOrientation,
+        ) ??
+        InputImageRotation.rotation0deg;
+    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+    if (format == null) {
+      return null;
+    }
+    final buffer = WriteBuffer();
+    for (final plane in image.planes) {
+      buffer.putUint8List(plane.bytes);
+    }
+    return InputImage.fromBytes(
+      bytes: buffer.done().buffer.asUint8List(),
+      metadata: InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: rotation,
+        format: format,
+        bytesPerRow: image.planes.first.bytesPerRow,
+      ),
+    );
   }
 
   @override
   void dispose() {
-    _autoScanTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _controller?.dispose();
     super.dispose();
@@ -141,7 +250,7 @@ class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
     final l10n = AppLocalizations.of(context);
     final controller = _controller;
     final hasPreview = controller != null && controller.value.isInitialized;
-    final detected = _detectedCard;
+    final locked = _detectedCandidates.isNotEmpty && _detectedMatch != null;
 
     return Scaffold(
       backgroundColor: AuraColors.obsidianVoid,
@@ -151,7 +260,7 @@ class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
           children: [
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(18),
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -182,35 +291,27 @@ class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
                                 ),
                               ),
                       ),
-                    IgnorePointer(
-                      child: AspectRatio(
-                        aspectRatio: 0.714,
-                        child: Container(
-                          margin: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: detected != null
-                                  ? AuraColors.emeraldAura
-                                  : AuraColors.solarGold,
-                              width: 2.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    ScannerZonalReticle(locked: locked, streaming: _streaming),
                   ],
                 ),
               ),
             ),
-            if (detected != null)
-              _DetectedCardBanner(
-                card: detected,
-                onAdd: () => Navigator.of(context).pop(detected),
-                onRescan: () => setState(() {
-                  _detectedCard = null;
-                  _lastQueriedTitle = null;
-                }),
+            if (locked)
+              ScannerDetectedArHud(
+                candidates: _detectedCandidates,
+                scanMatch: _detectedMatch!,
+                hasProofPhoto: _proofImageUrl != null,
+                onConfirm: _confirmSelection,
+                onRescan: () async {
+                  setState(() {
+                    _detectedCandidates = const [];
+                    _detectedMatch = null;
+                    _proofImageUrl = null;
+                    _pendingStableTitle = null;
+                    _stabilityHits = 0;
+                  });
+                  await _startOpticalStream();
+                },
               )
             else
               Padding(
@@ -223,7 +324,7 @@ class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: AuraColors.mutedText),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     FilledButton.icon(
                       onPressed: _processing || !hasPreview
                           ? null
@@ -253,6 +354,7 @@ class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
     }
     setState(() => _processing = true);
     try {
+      await _stopStreamSafely();
       final file = await controller.takePicture();
       await _processImagePath(file.path, silent: silent);
     } on CameraException {
@@ -290,38 +392,76 @@ class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
   }
 
   Future<void> _processImagePath(String path, {required bool silent}) async {
-    final match = await ref
+    final locale = Localizations.localeOf(context).languageCode;
+    var match = await ref
         .read(mlKitServiceProvider)
-        .extractCardDataFromImage(path);
-    var title = match.title;
-    if (title.isEmpty && !silent) {
-      title =
-          await ref
-              .read(cardTextExtractorProvider)
-              .extractSuggestedTitle(path) ??
-          '';
+        .extractCardDataFromImage(path, languageCode: locale);
+    if (match.title.isEmpty && !silent) {
+      final fallback = await ref
+          .read(cardTextExtractorProvider)
+          .extractSuggestedTitle(path);
+      if (fallback != null && fallback.isNotEmpty) {
+        match = CardScanMatch(title: fallback);
+      }
     }
     if (!mounted) {
       return;
     }
-    if (title.isEmpty) {
+    if (match.title.isEmpty) {
       if (!silent) {
         _showNoTextMessage();
       }
       return;
     }
+    final savedProof = await _storeProofSnapshot(path);
+    await _resolveCatalogCandidates(
+      match,
+      proofUrl: savedProof,
+      silent: silent,
+    );
+  }
 
+  Future<String?> _storeProofSnapshot(String path) async {
+    try {
+      final webp = await ref.read(imageCompressorProvider).compressToWebp(path);
+      return await ref
+          .read(mediaStorageServiceProvider)
+          .storeWebp(
+            bytes: webp,
+            fileName: 'scan_proof_${DateTime.now().millisecondsSinceEpoch}',
+          );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _resolveCatalogCandidates(
+    CardScanMatch match, {
+    int? artHash,
+    String? proofUrl,
+    required bool silent,
+  }) async {
     final provider = widget.provider;
-    if (provider != null && title != _lastQueriedTitle) {
-      _lastQueriedTitle = title;
+    if (provider != null) {
       try {
         final locale = Localizations.localeOf(context).languageCode;
         final results = await ref
             .read(catalogRepositoryProvider)
-            .search(provider: provider, query: title, languageCode: locale);
+            .search(provider: provider, query: match.title, languageCode: locale);
         if (mounted && results.isNotEmpty) {
-          final exact = _pickBestMatch(results, match.collectorNumber);
-          setState(() => _detectedCard = exact);
+          await _stopStreamSafely();
+          HapticFeedback.mediumImpact();
+          final ranked = CardArtHasher.rankCandidates(
+            results,
+            match,
+            capturedArtHash: artHash,
+          );
+          setState(() {
+            _detectedCandidates = ranked;
+            _detectedMatch = match;
+            _capturedArtHash = artHash;
+            _proofImageUrl = proofUrl;
+          });
           return;
         }
       } catch (_) {
@@ -330,31 +470,34 @@ class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
         }
       }
     }
-
     if (!silent && mounted) {
-      Navigator.of(context).pop(title);
+      Navigator.of(context).pop(match.title);
     }
   }
 
-  CatalogResult _pickBestMatch(
-    List<CatalogResult> results,
-    String? collectorNumber,
-  ) {
-    if (collectorNumber != null && collectorNumber.isNotEmpty) {
-      final normalizedTarget = collectorNumber.replaceFirst(RegExp(r'^0+'), '');
-      for (final item in results) {
-        final rawNum = item.metadata['number']?.toString() ?? '';
-        final normalizedItem = rawNum
-            .split('/')
-            .first
-            .trim()
-            .replaceFirst(RegExp(r'^0+'), '');
-        if (normalizedItem == normalizedTarget) {
-          return item;
-        }
-      }
-    }
-    return results.first;
+  void _confirmSelection(CatalogResult selected, bool isFoil) {
+    final match = _detectedMatch;
+    final enrichedMeta = <String, dynamic>{
+      ...selected.metadata,
+      'foil_hint': isFoil,
+      if (match != null) 'centering_ratio': match.centeringRatio,
+      if (match != null) 'estimated_grade': match.estimatedGrade,
+      if (_capturedArtHash != null && _capturedArtHash != 0)
+        'art_dhash': _capturedArtHash,
+      if (_proofImageUrl != null) 'proof_image_url': _proofImageUrl,
+    };
+    final enriched = CatalogResult(
+      collectionCode: selected.collectionCode,
+      sourceType: selected.sourceType,
+      externalId: selected.externalId,
+      name: selected.name,
+      imageUrl: selected.imageUrl,
+      estimatedPrice: isFoil && selected.estimatedPrice != null
+          ? double.parse((selected.estimatedPrice! * 1.35).toStringAsFixed(2))
+          : selected.estimatedPrice,
+      metadata: enrichedMeta,
+    );
+    Navigator.of(context).pop(enriched);
   }
 
   void _showNoTextMessage() {
@@ -365,114 +508,5 @@ class _CardScannerScreenState extends ConsumerState<CardScannerScreen>
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(l10n.ocrNoTextDetected)));
-  }
-}
-
-class _DetectedCardBanner extends ConsumerWidget {
-  const _DetectedCardBanner({
-    required this.card,
-    required this.onAdd,
-    required this.onRescan,
-  });
-
-  final CatalogResult card;
-  final VoidCallback onAdd;
-  final VoidCallback onRescan;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
-    final formatUsd = ref.watch(formatUsdProvider);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AuraColors.smokedCharcoal,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AuraColors.solarGold, width: 1.5),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 48,
-                  height: 66,
-                  child: Image.network(
-                    card.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.style,
-                      color: AuraColors.champagneGold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      card.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
-                    ),
-                    if (card.metadata['expansion'] != null)
-                      Text(
-                        card.metadata['expansion'].toString(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AuraColors.mutedText,
-                          fontSize: 12,
-                        ),
-                      ),
-                    if (card.estimatedPrice != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        formatUsd(card.estimatedPrice!),
-                        style: const TextStyle(
-                          color: AuraColors.solarGold,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: onRescan,
-                  child: Text(l10n.retryButton),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: onAdd,
-                  icon: const Icon(Icons.add),
-                  label: Text(l10n.addItemButton),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 }

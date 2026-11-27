@@ -24,10 +24,30 @@ class MockBinderRepository implements BinderRepository {
   ProfileModel _profile;
   final List<BinderModel> _binders;
   final List<ItemModel> _items;
+  final List<TrashedItemRecord> _trashedItems = [];
   int _nextId = 100;
 
   @override
   Future<ProfileModel> getActiveProfile() async => _profile;
+
+  @override
+  Future<ProfileModel> updateProfileIdentity({
+    String? displayName,
+    String? tradeContact,
+  }) async {
+    final trimmedName = displayName?.trim();
+    final trimmedContact = tradeContact?.trim();
+    _profile = _profile.copyWith(
+      displayName: trimmedName != null && trimmedName.isNotEmpty
+          ? trimmedName
+          : _profile.displayName,
+      tradeContact: trimmedContact != null && trimmedContact.isNotEmpty
+          ? trimmedContact
+          : null,
+      clearTradeContact: trimmedContact != null && trimmedContact.isEmpty,
+    );
+    return _profile;
+  }
 
   @override
   Future<ProfileModel> updateProfileEntitlements({
@@ -309,8 +329,137 @@ class MockBinderRepository implements BinderRepository {
   }
 
   @override
+  Future<void> swapItemPositions({
+    required String binderId,
+    required int fromPosition,
+    required int toPosition,
+  }) async {
+    if (fromPosition == toPosition) {
+      return;
+    }
+    final binder = await _requireBinder(binderId);
+    if (fromPosition < 0 ||
+        toPosition < 0 ||
+        fromPosition >= binder.maxSlots ||
+        toPosition >= binder.maxSlots) {
+      throw const BinderCapacityException();
+    }
+    final fromIdx = _items.indexWhere(
+      (it) => it.binderId == binderId && it.positionIndex == fromPosition,
+    );
+    if (fromIdx == -1) {
+      return;
+    }
+    final toIdx = _items.indexWhere(
+      (it) => it.binderId == binderId && it.positionIndex == toPosition,
+    );
+    final moving = _items[fromIdx];
+    if (toIdx == -1) {
+      _items[fromIdx] = moving.copyWith(positionIndex: toPosition);
+    } else {
+      final target = _items[toIdx];
+      _items[fromIdx] = moving.copyWith(positionIndex: toPosition);
+      _items[toIdx] = target.copyWith(positionIndex: fromPosition);
+    }
+  }
+
+  @override
   Future<void> deleteItem(String itemId) async {
-    _items.removeWhere((item) => item.id == itemId);
+    await moveItemToTrash(itemId);
+  }
+
+  @override
+  Future<List<TrashedItemRecord>> getTrashedItems() async {
+    final sorted = List<TrashedItemRecord>.from(_trashedItems)
+      ..sort((a, b) => b.deletedAt.compareTo(a.deletedAt));
+    return List.unmodifiable(sorted);
+  }
+
+  @override
+  Future<TrashedItemRecord?> moveItemToTrash(String itemId) async {
+    final index = _items.indexWhere((item) => item.id == itemId);
+    if (index == -1) {
+      return null;
+    }
+    final removed = _items.removeAt(index);
+    final binder = await getBinder(removed.binderId);
+    final record = TrashedItemRecord(
+      item: removed,
+      binderTitle: binder?.title ?? 'Vitrina',
+      deletedAt: DateTime.now().toUtc(),
+    );
+    _trashedItems.removeWhere((r) => r.item.id == itemId);
+    _trashedItems.add(record);
+    return record;
+  }
+
+  @override
+  Future<ItemModel> restoreItemFromTrash(String itemId) async {
+    final trashIdx = _trashedItems.indexWhere((r) => r.item.id == itemId);
+    if (trashIdx == -1) {
+      throw const BinderRepositoryException('Item not found in trash.');
+    }
+    final record = _trashedItems[trashIdx];
+    var targetBinder = await getBinder(record.item.binderId);
+    targetBinder ??= _binders
+        .where((b) => b.collectionCode == record.item.collectionCode)
+        .firstOrNull;
+    if (targetBinder == null) {
+      throw const BinderRepositoryException('Target binder unavailable.');
+    }
+
+    final occupied = _items
+        .where((it) => it.binderId == targetBinder!.id)
+        .map((it) => it.positionIndex)
+        .toSet();
+    int? targetSlot;
+    if (record.item.binderId == targetBinder.id &&
+        record.item.positionIndex >= 0 &&
+        record.item.positionIndex < targetBinder.maxSlots &&
+        !occupied.contains(record.item.positionIndex)) {
+      targetSlot = record.item.positionIndex;
+    } else {
+      for (var s = 0; s < targetBinder.maxSlots; s++) {
+        if (!occupied.contains(s)) {
+          targetSlot = s;
+          break;
+        }
+      }
+    }
+    if (targetSlot == null) {
+      throw const BinderCapacityException();
+    }
+
+    final restored = ItemModel(
+      id: record.item.id,
+      binderId: targetBinder.id,
+      userId: targetBinder.userId,
+      collectionCode: record.item.collectionCode,
+      sourceType: record.item.sourceType,
+      externalId: record.item.externalId,
+      name: record.item.name,
+      imageUrl: record.item.imageUrl,
+      isFoil: record.item.isFoil,
+      condition: record.item.condition,
+      estimatedPrice: record.item.estimatedPrice,
+      positionIndex: targetSlot,
+      metadata: record.item.metadata,
+      notes: record.item.notes,
+      createdAt: record.item.createdAt,
+    );
+    _trashedItems.removeAt(trashIdx);
+    _items.add(restored);
+    return restored;
+  }
+
+  @override
+  Future<void> permanentlyDeleteFromTrash(String itemId) async {
+    _trashedItems.removeWhere((r) => r.item.id == itemId);
+  }
+
+  @override
+  Future<void> emptyTrash() async {
+    _trashedItems.clear();
   }
 
   @override
@@ -336,6 +485,7 @@ class MockBinderRepository implements BinderRepository {
     id: '00000000-0000-0000-0000-000000000010',
     username: 'auracollector',
     displayName: 'Aura Collector',
+    tradeContact: '@aura_trades_cl',
     preferredLanguage: 'es',
     isPro: false,
     isAdmin: false,
@@ -429,6 +579,7 @@ extension on ProfileModel {
     username: username,
     displayName: displayName,
     avatarUrl: avatarUrl,
+    tradeContact: tradeContact,
     preferredLanguage: preferredLanguage,
     isPro: true,
     isAdmin: isAdmin,

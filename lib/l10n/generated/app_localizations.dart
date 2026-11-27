@@ -1685,6 +1685,702 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No tienes suficientes espacios en tu Banco. Adquiere hojas en Ajustes.'**
   String get notEnoughBankSpaces;
+
+  /// No description provided for @navDecks.
+  ///
+  /// In es, this message translates to:
+  /// **'Mazos'**
+  String get navDecks;
+
+  /// No description provided for @apiPolicyBannerTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Política de Autenticidad Física'**
+  String get apiPolicyBannerTitle;
+
+  /// No description provided for @apiPolicyBannerBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta vitrina certifica cartas escaneadas con cámara. Si agregas desde el buscador API (modo prueba/referencia), quedará marcada públicamente como «API · Sin físico».'**
+  String get apiPolicyBannerBody;
+
+  /// No description provided for @apiConfirmWarningTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Inserción desde API sin escaneo físico'**
+  String get apiConfirmWarningTitle;
+
+  /// No description provided for @apiConfirmWarningBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Llevará el sello público «API · SIN FÍSICO» para indicar a quien vea tu vitrina que aún no ha sido escaneada físicamente. No podrá ponerse en venta ni cambio.'**
+  String get apiConfirmWarningBody;
+
+  /// No description provided for @apiUnverifiedBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'API · SIN FÍSICO'**
+  String get apiUnverifiedBadge;
+
+  /// No description provided for @apiReferenceWatermark.
+  ///
+  /// In es, this message translates to:
+  /// **'REFERENCIA API · NO FÍSICA'**
+  String get apiReferenceWatermark;
+
+  /// No description provided for @physicalVerifiedBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'FÍSICA'**
+  String get physicalVerifiedBadge;
+
+  /// No description provided for @physicalVerifiedBanner.
+  ///
+  /// In es, this message translates to:
+  /// **'Posesión física verificada por escáner o fotografía.'**
+  String get physicalVerifiedBanner;
+
+  /// No description provided for @apiUnverifiedBannerTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Aviso público: Sin ejemplar físico verificado'**
+  String get apiUnverifiedBannerTitle;
+
+  /// No description provided for @apiUnverifiedBannerBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Agregada desde buscador API como referencia. No suma al patrimonio físico ni puede ofrecerse en cambio o venta.'**
+  String get apiUnverifiedBannerBody;
+
+  /// No description provided for @verifyWithScannerButton.
+  ///
+  /// In es, this message translates to:
+  /// **'📷 Ya la tengo: Verificar con escáner'**
+  String get verifyWithScannerButton;
+
+  /// No description provided for @verifiedSuccessMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'¡Pieza verificada como ejemplar físico escaneado!'**
+  String get verifiedSuccessMessage;
+
+  /// No description provided for @trustBadgeFullPhysical.
+  ///
+  /// In es, this message translates to:
+  /// **'🛡️ 100% Física Escaneada'**
+  String get trustBadgeFullPhysical;
+
+  /// No description provided for @trustBadgeHasApi.
+  ///
+  /// In es, this message translates to:
+  /// **'☁️ {count} vía API sin verificar'**
+  String trustBadgeHasApi(int count);
+
+  /// No description provided for @filterAll.
+  ///
+  /// In es, this message translates to:
+  /// **'Todas'**
+  String get filterAll;
+
+  /// No description provided for @filterPhysicalOnly.
+  ///
+  /// In es, this message translates to:
+  /// **'📸 Solo Físicas'**
+  String get filterPhysicalOnly;
+
+  /// No description provided for @filterForTrade.
+  ///
+  /// In es, this message translates to:
+  /// **'🔄 Cambio'**
+  String get filterForTrade;
+
+  /// No description provided for @filterForSale.
+  ///
+  /// In es, this message translates to:
+  /// **'💲 Venta'**
+  String get filterForSale;
+
+  /// No description provided for @tradeStatusLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Estado comercial (Tradelist)'**
+  String get tradeStatusLabel;
+
+  /// No description provided for @tradeStatusNone.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo colección'**
+  String get tradeStatusNone;
+
+  /// No description provided for @tradeStatusForTrade.
+  ///
+  /// In es, this message translates to:
+  /// **'Disponible para cambio'**
+  String get tradeStatusForTrade;
+
+  /// No description provided for @tradeStatusForSale.
+  ///
+  /// In es, this message translates to:
+  /// **'En venta'**
+  String get tradeStatusForSale;
+
+  /// No description provided for @tradeStatusWishlistApi.
+  ///
+  /// In es, this message translates to:
+  /// **'Referencia API (Sin físico)'**
+  String get tradeStatusWishlistApi;
+
+  /// No description provided for @tradeBadgeShort.
+  ///
+  /// In es, this message translates to:
+  /// **'CAMBIO'**
+  String get tradeBadgeShort;
+
+  /// No description provided for @saleBadgeShort.
+  ///
+  /// In es, this message translates to:
+  /// **'VENTA'**
+  String get saleBadgeShort;
+
+  /// No description provided for @apiCannotTradeMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Las referencias API sin escanear no pueden ponerse en venta ni cambio.'**
+  String get apiCannotTradeMessage;
+
+  /// No description provided for @slabGraderLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Certificadora (Slab)'**
+  String get slabGraderLabel;
+
+  /// No description provided for @slabNoneOption.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin gradear (Raw)'**
+  String get slabNoneOption;
+
+  /// No description provided for @slabScoreLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Nota'**
+  String get slabScoreLabel;
+
+  /// No description provided for @slabCertLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'N.º Cert.'**
+  String get slabCertLabel;
+
+  /// No description provided for @purchaseCostLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Costo de compra'**
+  String get purchaseCostLabel;
+
+  /// No description provided for @roiLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Plusvalía (ROI)'**
+  String get roiLabel;
+
+  /// No description provided for @slabsCountLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Slabs certificados'**
+  String get slabsCountLabel;
+
+  /// No description provided for @tradelistCountLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'En Tradelist'**
+  String get tradelistCountLabel;
+
+  /// No description provided for @apiReferencesCountLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Referencias API (no físicas)'**
+  String get apiReferencesCountLabel;
+
+  /// No description provided for @gridFormatLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Formato de cuadrícula'**
+  String get gridFormatLabel;
+
+  /// No description provided for @grid2x2Option.
+  ///
+  /// In es, this message translates to:
+  /// **'2×2 Compacta (4 por hoja)'**
+  String get grid2x2Option;
+
+  /// No description provided for @grid3x3Option.
+  ///
+  /// In es, this message translates to:
+  /// **'3×3 Estándar (9 por hoja)'**
+  String get grid3x3Option;
+
+  /// No description provided for @grid4x3ProOption.
+  ///
+  /// In es, this message translates to:
+  /// **'4×3 Master XL (12 por hoja · Pro)'**
+  String get grid4x3ProOption;
+
+  /// No description provided for @gridProRequiredMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'El formato panorámico 4×3 (12 por hoja) requiere Aura Pro.'**
+  String get gridProRequiredMessage;
+
+  /// No description provided for @pocketRangeIndicator.
+  ///
+  /// In es, this message translates to:
+  /// **'Bolsillos #{start} – #{end}'**
+  String pocketRangeIndicator(int start, int end);
+
+  /// No description provided for @dragSwapHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Mantén presionada una pieza para arrastrarla a otro bolsillo'**
+  String get dragSwapHint;
+
+  /// No description provided for @positionsSwappedMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Posiciones actualizadas en la hoja.'**
+  String get positionsSwappedMessage;
+
+  /// No description provided for @qrPosterButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Póster QR Torneo'**
+  String get qrPosterButton;
+
+  /// No description provided for @qrPosterTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarjeta QR de Vitrina'**
+  String get qrPosterTitle;
+
+  /// No description provided for @qrPosterTopGems.
+  ///
+  /// In es, this message translates to:
+  /// **'TOP PIEZAS FÍSICAS VERIFICADAS'**
+  String get qrPosterTopGems;
+
+  /// No description provided for @shareQrLinkButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Compartir enlace QR'**
+  String get shareQrLinkButton;
+
+  /// No description provided for @batchScannerButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Escáner por lote (Ráfaga)'**
+  String get batchScannerButton;
+
+  /// No description provided for @batchScannerTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Bandeja de Escaneo por Lote'**
+  String get batchScannerTitle;
+
+  /// No description provided for @batchScannerHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Captura varias cartas seguidas con ML Kit e insértalas juntas en bolsillos libres.'**
+  String get batchScannerHint;
+
+  /// No description provided for @batchScanNextButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Capturar siguiente carta'**
+  String get batchScanNextButton;
+
+  /// No description provided for @batchGalleryButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir foto desde galería'**
+  String get batchGalleryButton;
+
+  /// No description provided for @batchEmptyMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no hay cartas en la bandeja de lote.'**
+  String get batchEmptyMessage;
+
+  /// No description provided for @batchCommitButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Insertar lote ({count})'**
+  String batchCommitButton(int count);
+
+  /// No description provided for @batchCommittedMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Se insertaron {count} piezas físicas en bolsillos consecutivos.'**
+  String batchCommittedMessage(int count);
+
+  /// No description provided for @decksTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Constructor de Mazos'**
+  String get decksTitle;
+
+  /// No description provided for @decksSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cruza tus listas con tus vitrinas físicas verificadas.'**
+  String get decksSubtitle;
+
+  /// No description provided for @newDeckButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Nuevo mazo'**
+  String get newDeckButton;
+
+  /// No description provided for @createDeckTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear nuevo mazo'**
+  String get createDeckTitle;
+
+  /// No description provided for @deckNameLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre del mazo'**
+  String get deckNameLabel;
+
+  /// No description provided for @deckFormatLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Formato (ej. Commander, Standard)'**
+  String get deckFormatLabel;
+
+  /// No description provided for @importExportDeckButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar / Exportar'**
+  String get importExportDeckButton;
+
+  /// No description provided for @deckIoHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Una carta por línea (ej. 1 Sol Ring o 4 Lightning Bolt)'**
+  String get deckIoHint;
+
+  /// No description provided for @applyDecklistButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Aplicar lista'**
+  String get applyDecklistButton;
+
+  /// No description provided for @copyDecklistButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar lista'**
+  String get copyDecklistButton;
+
+  /// No description provided for @deckCopiedMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista de mazo copiada al portapapeles.'**
+  String get deckCopiedMessage;
+
+  /// No description provided for @ownedInShowcaseBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'✓ Físicas ({count}): {location}'**
+  String ownedInShowcaseBadge(int count, String location);
+
+  /// No description provided for @missingFromShowcasesBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'✗ Faltante en vitrinas · Est. {price}'**
+  String missingFromShowcasesBadge(String price);
+
+  /// No description provided for @ownedVsTotalLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Físicas en vitrinas'**
+  String get ownedVsTotalLabel;
+
+  /// No description provided for @missingCostLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Costo faltantes'**
+  String get missingCostLabel;
+
+  /// No description provided for @manaCurveTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Curva de coste'**
+  String get manaCurveTitle;
+
+  /// No description provided for @addCardToDeckHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir carta al mazo…'**
+  String get addCardToDeckHint;
+
+  /// No description provided for @addedToDeckMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'«{name}» añadida a «{deck}».'**
+  String addedToDeckMessage(String name, String deck);
+
+  /// No description provided for @selectDeckTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir mazo destino'**
+  String get selectDeckTitle;
+
+  /// No description provided for @noDecksYetMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no tienes mazos creados. Crea el primero para vincular tus cartas.'**
+  String get noDecksYetMessage;
+
+  /// No description provided for @scannerZoneTitleLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'NOMBRE'**
+  String get scannerZoneTitleLabel;
+
+  /// No description provided for @scannerZoneSetLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'SET · N.º'**
+  String get scannerZoneSetLabel;
+
+  /// No description provided for @scannerStreamActiveBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'⚡ STREAM ÓPTICO EN VIVO'**
+  String get scannerStreamActiveBadge;
+
+  /// No description provided for @scannerVariantSelectorLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Ediciones detectadas ({count})'**
+  String scannerVariantSelectorLabel(int count);
+
+  /// No description provided for @scannerCenteringLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Pre-Grading · Centrado {ratio} ({grade})'**
+  String scannerCenteringLabel(String ratio, String grade);
+
+  /// No description provided for @proofSnapshotSavedBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'📸 Evidencia física capturada'**
+  String get proofSnapshotSavedBadge;
+
+  /// No description provided for @viewOfficialArtToggle.
+  ///
+  /// In es, this message translates to:
+  /// **'Arte Oficial'**
+  String get viewOfficialArtToggle;
+
+  /// No description provided for @viewProofPhotoToggle.
+  ///
+  /// In es, this message translates to:
+  /// **'Foto Escaneada'**
+  String get viewProofPhotoToggle;
+
+  /// No description provided for @trashBinTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Papelera de Eliminación'**
+  String get trashBinTitle;
+
+  /// No description provided for @trashBinSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Las piezas eliminadas se guardan aquí por seguridad. Puedes restaurarlas a su bolsillo o vaciarlas definitivamente.'**
+  String get trashBinSubtitle;
+
+  /// No description provided for @trashBinEmptyMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'La papelera está vacía.'**
+  String get trashBinEmptyMessage;
+
+  /// No description provided for @trashBinCountBadge.
+  ///
+  /// In es, this message translates to:
+  /// **'Papelera ({count})'**
+  String trashBinCountBadge(int count);
+
+  /// No description provided for @moveToTrashButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Enviar a la papelera'**
+  String get moveToTrashButton;
+
+  /// No description provided for @moveToTrashConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'«{name}» saldrá del bolsillo y pasará a la Papelera de Eliminación (podrás restaurarla cuando quieras).'**
+  String moveToTrashConfirm(String name);
+
+  /// No description provided for @movedToTrashMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'«{name}» enviada a la papelera.'**
+  String movedToTrashMessage(String name);
+
+  /// No description provided for @undoButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Deshacer'**
+  String get undoButton;
+
+  /// No description provided for @restoreFromTrashButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Restaurar'**
+  String get restoreFromTrashButton;
+
+  /// No description provided for @restoredFromTrashMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'«{name}» restaurada al bolsillo #{pocket}.'**
+  String restoredFromTrashMessage(String name, int pocket);
+
+  /// No description provided for @permanentDeleteButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar definitivo'**
+  String get permanentDeleteButton;
+
+  /// No description provided for @emptyTrashButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Vaciar papelera'**
+  String get emptyTrashButton;
+
+  /// No description provided for @emptyTrashConfirm.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar definitivamente las {count} piezas de la papelera? Esta acción no se puede deshacer.'**
+  String emptyTrashConfirm(int count);
+
+  /// No description provided for @trashDropZoneHint.
+  ///
+  /// In es, this message translates to:
+  /// **'🗑️ Suelta aquí para enviar a la Papelera'**
+  String get trashDropZoneHint;
+
+  /// No description provided for @trashOriginLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'De: {binder} · Bolsillo #{pocket}'**
+  String trashOriginLabel(String binder, int pocket);
+
+  /// No description provided for @deckGameTypeLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Juego del mazo'**
+  String get deckGameTypeLabel;
+
+  /// No description provided for @deleteDeckButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar mazo'**
+  String get deleteDeckButton;
+
+  /// No description provided for @deckFilterAll.
+  ///
+  /// In es, this message translates to:
+  /// **'Todas'**
+  String get deckFilterAll;
+
+  /// No description provided for @deckFilterOwned.
+  ///
+  /// In es, this message translates to:
+  /// **'✓ En Vitrinas'**
+  String get deckFilterOwned;
+
+  /// No description provided for @deckFilterMissing.
+  ///
+  /// In es, this message translates to:
+  /// **'✗ Faltantes'**
+  String get deckFilterMissing;
+
+  /// No description provided for @pullListButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista de Extracción'**
+  String get pullListButton;
+
+  /// No description provided for @pullListTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Localizador Físico · Lista de Extracción'**
+  String get pullListTitle;
+
+  /// No description provided for @pullListSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ubicación exacta de cada carta física que debes sacar de tus vitrinas para armar este mazo:'**
+  String get pullListSubtitle;
+
+  /// No description provided for @pullListEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no tienes cartas físicas de este mazo localizadas en tus vitrinas.'**
+  String get pullListEmpty;
+
+  /// No description provided for @openInShowcaseTooltip.
+  ///
+  /// In es, this message translates to:
+  /// **'Ir a la pieza en vitrina'**
+  String get openInShowcaseTooltip;
+
+  /// No description provided for @editProfileButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar perfil'**
+  String get editProfileButton;
+
+  /// No description provided for @displayNameLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre visible'**
+  String get displayNameLabel;
+
+  /// No description provided for @tradeContactLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Contacto Tradelist (ej. @usuario / Discord)'**
+  String get tradeContactLabel;
+
+  /// No description provided for @tradeContactHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Visible en tus vitrinas públicas para acordar cambios o ventas'**
+  String get tradeContactHint;
+
+  /// No description provided for @contactSellerButton.
+  ///
+  /// In es, this message translates to:
+  /// **'Contactar ({handle})'**
+  String contactSellerButton(String handle);
+
+  /// No description provided for @contactCopiedMessage.
+  ///
+  /// In es, this message translates to:
+  /// **'Contacto «{handle}» copiado al portapapeles.'**
+  String contactCopiedMessage(String handle);
+
+  /// No description provided for @costBasisLabel.
+  ///
+  /// In es, this message translates to:
+  /// **'Costo adquisición'**
+  String get costBasisLabel;
 }
 
 class _AppLocalizationsDelegate

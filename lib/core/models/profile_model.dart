@@ -4,6 +4,7 @@ class ProfileModel {
     required this.username,
     this.displayName,
     this.avatarUrl,
+    this.tradeContact,
     required this.preferredLanguage,
     required this.isPro,
     required this.isAdmin,
@@ -19,6 +20,7 @@ class ProfileModel {
       username: json['username'] as String,
       displayName: json['display_name'] as String?,
       avatarUrl: json['avatar_url'] as String?,
+      tradeContact: json['trade_contact'] as String?,
       preferredLanguage: (json['preferred_language'] as String?) ?? 'es',
       isPro: (json['is_pro'] as bool?) ?? false,
       isAdmin: (json['is_admin'] as bool?) ?? false,
@@ -33,6 +35,7 @@ class ProfileModel {
   final String username;
   final String? displayName;
   final String? avatarUrl;
+  final String? tradeContact;
   final String preferredLanguage;
   final bool isPro;
   final bool isAdmin;
@@ -41,10 +44,26 @@ class ProfileModel {
   final String? revenuecatAppUserId;
   final DateTime createdAt;
 
+  String get initials {
+    final source = (displayName?.trim().isNotEmpty == true)
+        ? displayName!.trim()
+        : username.trim();
+    if (source.isEmpty) {
+      return 'AC';
+    }
+    final parts = source.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return source.substring(0, source.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
   ProfileModel copyWith({
     String? username,
     String? displayName,
     String? avatarUrl,
+    String? tradeContact,
+    bool clearTradeContact = false,
     String? preferredLanguage,
     bool? isPro,
     bool? isAdmin,
@@ -57,6 +76,9 @@ class ProfileModel {
       username: username ?? this.username,
       displayName: displayName ?? this.displayName,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      tradeContact: clearTradeContact
+          ? null
+          : (tradeContact ?? this.tradeContact),
       preferredLanguage: preferredLanguage ?? this.preferredLanguage,
       isPro: isPro ?? this.isPro,
       isAdmin: isAdmin ?? this.isAdmin,
@@ -72,6 +94,7 @@ class ProfileModel {
     'username': username,
     'display_name': displayName,
     'avatar_url': avatarUrl,
+    if (tradeContact != null) 'trade_contact': tradeContact,
     'preferred_language': preferredLanguage,
     'is_pro': isPro,
     'is_admin': isAdmin,

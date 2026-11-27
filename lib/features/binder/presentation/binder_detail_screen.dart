@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/collections/collection_l10n.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../core/models/binder_model.dart';
 import '../../../core/models/item_model.dart';
 import '../../../core/theme/aura_colors.dart';
 import '../../../core/widgets/aura_sigil_logo.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../catalog/providers/deck_providers.dart';
 import '../providers/binder_providers.dart';
 import 'widgets/binder_manage_sheet.dart';
+import 'widgets/binder_pocket_grid.dart';
 import 'widgets/language_menu.dart';
+import 'widgets/qr_poster_sheet.dart';
+import 'widgets/trash_bin_sheet.dart';
 
 class BinderDetailScreen extends ConsumerStatefulWidget {
   const BinderDetailScreen({
@@ -33,6 +37,7 @@ class BinderDetailScreen extends ConsumerStatefulWidget {
 class _BinderDetailScreenState extends ConsumerState<BinderDetailScreen> {
   late final PageController _pageController;
   int _page = 0;
+  String _publicFilter = 'all';
 
   @override
   void initState() {
@@ -59,7 +64,40 @@ class _BinderDetailScreenState extends ConsumerState<BinderDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         actions: [
+          if (binderAsync.value != null)
+            IconButton(
+              tooltip: l10n.qrPosterButton,
+              onPressed: () {
+                final binder = binderAsync.value!;
+                final items =
+                    ref.read(binderItemsProvider(binder.id)).valueOrNull ??
+                    const <ItemModel>[];
+                showQrPosterSheet(
+                  context,
+                  binder: binder,
+                  username: username,
+                  items: items,
+                );
+              },
+              icon: const Icon(Icons.qr_code_2),
+            ),
           if (!widget.publicView) ...[
+            Consumer(
+              builder: (context, ref, _) {
+                final count =
+                    ref.watch(trashedItemsProvider).valueOrNull?.length ?? 0;
+                return IconButton(
+                  tooltip: l10n.trashBinTitle,
+                  onPressed: () => showTrashBinSheet(context),
+                  icon: Badge(
+                    isLabelVisible: count > 0,
+                    label: Text('$count'),
+                    backgroundColor: AuraColors.psychicMagenta,
+                    child: const Icon(Icons.delete_outline),
+                  ),
+                );
+              },
+            ),
             if (binderAsync.value?.isPublic == true)
               IconButton(
                 tooltip: l10n.publicPreviewButton,
@@ -89,7 +127,9 @@ class _BinderDetailScreenState extends ConsumerState<BinderDetailScreen> {
                   : () async {
                       final binder = binderAsync.value!;
                       final items =
-                          ref.read(binderItemsProvider(binder.id)).valueOrNull ??
+                          ref
+                              .read(binderItemsProvider(binder.id))
+                              .valueOrNull ??
                           const <ItemModel>[];
                       final deleted = await showBinderManageSheet(
                         context,
@@ -122,9 +162,11 @@ class _BinderDetailScreenState extends ConsumerState<BinderDetailScreen> {
                 publicView: widget.publicView,
                 publicBasePath: widget.publicBasePath,
                 page: _page,
+                publicFilter: _publicFilter,
+                onFilterChanged: (f) => setState(() => _publicFilter = f),
                 controller: _pageController,
                 onPageChanged: (page) => setState(() => _page = page),
-                onJump: () => _jumpToPage(binder.maxSlots),
+                onJump: () => _jumpToPage(binder),
               );
             },
           ),
@@ -133,9 +175,10 @@ class _BinderDetailScreenState extends ConsumerState<BinderDetailScreen> {
     );
   }
 
-  Future<void> _jumpToPage(int maxSlots) async {
+  Future<void> _jumpToPage(BinderModel binder) async {
     final l10n = AppLocalizations.of(context);
-    final pages = (maxSlots / AppConstants.binderGridSize).ceil();
+    final perSheet = slotsPerSheetForFormat(binder.gridFormat);
+    final pages = (binder.maxSlots / perSheet).ceil().clamp(1, 999);
     final selected = await showModalBottomSheet<int>(
       context: context,
       backgroundColor: AuraColors.obsidianVoid,
@@ -175,6 +218,8 @@ class _BinderPages extends ConsumerWidget {
     required this.publicView,
     this.publicBasePath,
     required this.page,
+    required this.publicFilter,
+    required this.onFilterChanged,
     required this.controller,
     required this.onPageChanged,
     required this.onJump,
@@ -184,6 +229,8 @@ class _BinderPages extends ConsumerWidget {
   final bool publicView;
   final String? publicBasePath;
   final int page;
+  final String publicFilter;
+  final ValueChanged<String> onFilterChanged;
   final PageController controller;
   final ValueChanged<int> onPageChanged;
   final VoidCallback onJump;
@@ -192,7 +239,8 @@ class _BinderPages extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final itemsAsync = ref.watch(binderItemsProvider(binder.id));
-    final rawPages = (binder.maxSlots / AppConstants.binderGridSize).ceil();
+    final perSheet = slotsPerSheetForFormat(binder.gridFormat);
+    final rawPages = (binder.maxSlots / perSheet).ceil();
     final pageCount = rawPages < 1 ? 1 : rawPages;
     final collectionLabel = CollectionL10n.binderCollectionLabel(l10n, binder);
 
@@ -201,20 +249,36 @@ class _BinderPages extends ConsumerWidget {
       error: (_, _) => _DetailError(
         onRetry: () => ref.invalidate(binderItemsProvider(binder.id)),
       ),
-      data: (items) {
+      data: (allItems) {
+        final unverifiedCount = allItems
+            .where((it) => !it.isPhysicallyVerified)
+            .length;
+        final filtered = allItems.where((it) {
+          if (!publicView || publicFilter == 'all') {
+            return true;
+          }
+          if (publicFilter == 'physical') {
+            return it.isPhysicallyVerified;
+          }
+          return it.isPhysicallyVerified && it.tradeStatus == publicFilter;
+        }).toList();
+
         final itemsByPosition = {
-          for (final item in items) item.positionIndex: item,
+          for (final item in filtered) item.positionIndex: item,
         };
         final nextPosition = _findAvailablePosition(
-          items: items,
+          items: allItems,
           currentPage: page,
+          perSheet: perSheet,
           maxSlots: binder.maxSlots,
         );
+        final startSlot = page * perSheet + 1;
+        final endSlot = ((page + 1) * perSheet).clamp(1, binder.maxSlots);
 
         return Column(
           children: [
-            const AuraSigilLogo(size: 56, showAura: true),
-            const SizedBox(height: 6),
+            const AuraSigilLogo(size: 48, showAura: true),
+            const SizedBox(height: 4),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ShaderMask(
@@ -234,50 +298,116 @@ class _BinderPages extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              '◆ $collectionLabel',
-              style: const TextStyle(
-                color: AuraColors.champagneGold,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            if (binder.isCompleted)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AuraColors.emeraldAura.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: AuraColors.emeraldAura.withValues(alpha: 0.5),
+            Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: WrapAlignment.center,
+              children: [
+                Text(
+                  '◆ $collectionLabel · ${binder.gridFormat}',
+                  style: const TextStyle(
+                    color: AuraColors.champagneGold,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                child: Text(
-                  '✓ ${l10n.collectionCompleteBadge} (${items.length}/${binder.maxSlots})',
-                  style: const TextStyle(
-                    color: AuraColors.emeraldAura,
+                Text(
+                  unverifiedCount == 0
+                      ? l10n.trustBadgeFullPhysical
+                      : l10n.trustBadgeHasApi(unverifiedCount),
+                  style: TextStyle(
+                    color: unverifiedCount == 0
+                        ? AuraColors.emeraldAura
+                        : AuraColors.psychicMagenta,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            if (binder.isCompleted)
+              Text(
+                '✓ ${l10n.collectionCompleteBadge} (${allItems.length}/${binder.maxSlots})',
+                style: const TextStyle(
+                  color: AuraColors.emeraldAura,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
                 ),
               )
             else
               Text(
                 l10n.remainingSlotsBanner(
-                  (binder.maxSlots - items.length).clamp(0, binder.maxSlots),
+                  (binder.maxSlots - allItems.length).clamp(0, binder.maxSlots),
                 ),
                 style: TextStyle(
-                  color: (binder.maxSlots - items.length) <= 5
+                  color: (binder.maxSlots - allItems.length) <= 5
                       ? AuraColors.psychicMagenta
                       : AuraColors.silverMuted,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            if (items.isEmpty)
+            if (publicView)
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                child: Row(
+                  children: [
+                    for (final entry in {
+                      'all': l10n.filterAll,
+                      'physical': l10n.filterPhysicalOnly,
+                      ItemTradeStatus.forTrade: l10n.filterForTrade,
+                      ItemTradeStatus.forSale: l10n.filterForSale,
+                    }.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text(entry.value),
+                          selected: publicFilter == entry.key,
+                          onSelected: (_) => onFilterChanged(entry.key),
+                        ),
+                      ),
+                    Builder(
+                      builder: (context) {
+                        final contact =
+                            ref
+                                .watch(activeProfileProvider)
+                                .valueOrNull
+                                ?.tradeContact;
+                        if (contact == null || contact.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return ActionChip(
+                          avatar: const Icon(
+                            Icons.chat_bubble_outline,
+                            size: 15,
+                            color: AuraColors.manaCyan,
+                          ),
+                          label: Text(l10n.contactSellerButton(contact)),
+                          onPressed: () async {
+                            await Clipboard.setData(
+                              ClipboardData(text: contact),
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    l10n.contactCopiedMessage(contact),
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            if (allItems.isEmpty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                 child: Text(
                   l10n.emptyBinderMessage,
                   textAlign: TextAlign.center,
@@ -288,12 +418,15 @@ class _BinderPages extends ConsumerWidget {
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 2),
               child: Row(
                 children: [
                   Text(
-                    l10n.pageIndicator(page + 1, pageCount),
-                    style: const TextStyle(color: AuraColors.mutedText),
+                    '${l10n.pageIndicator(page + 1, pageCount)} · ${l10n.pocketRangeIndicator(startSlot, endSlot)}',
+                    style: const TextStyle(
+                      color: AuraColors.mutedText,
+                      fontSize: 12,
+                    ),
                   ),
                   const Spacer(),
                   TextButton.icon(
@@ -312,12 +445,75 @@ class _BinderPages extends ConsumerWidget {
                 controller: controller,
                 onPageChanged: onPageChanged,
                 itemCount: pageCount,
-                itemBuilder: (context, pageIndex) => _PocketGrid(
+                itemBuilder: (context, pageIndex) => BinderPocketGrid(
                   binder: binder,
-                  startIndex: pageIndex * AppConstants.binderGridSize,
+                  startIndex: pageIndex * perSheet,
                   itemsByPosition: itemsByPosition,
                   publicView: publicView,
-                  publicBasePath: publicBasePath,
+                  onEmptyTap: publicView
+                      ? null
+                      : (pos) => context.push(
+                          '/binder/${binder.id}/catalog?position=$pos',
+                        ),
+                  onItemTap: (item) {
+                    final prefix = publicView
+                        ? (publicBasePath ?? '/public/binder/${binder.id}')
+                        : '/binder/${binder.id}';
+                    context.push('$prefix/item/${item.id}');
+                  },
+                  onSwapPositions: publicView
+                      ? null
+                      : (fromPos, toPos) async {
+                          await ref
+                              .read(binderRepositoryProvider)
+                              .swapItemPositions(
+                                binderId: binder.id,
+                                fromPosition: fromPos,
+                                toPosition: toPos,
+                              );
+                          ref.invalidate(binderItemsProvider(binder.id));
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.positionsSwappedMessage),
+                              ),
+                            );
+                          }
+                        },
+                  onMoveToTrash: publicView
+                      ? null
+                      : (item) async {
+                          await ref
+                              .read(binderRepositoryProvider)
+                              .moveItemToTrash(item.id);
+                          ref.invalidate(binderItemsProvider(binder.id));
+                          ref.invalidate(trashedItemsProvider);
+                          ref.invalidate(portfolioValuationProvider);
+                          ref.invalidate(deckInventoryMatchProvider);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  l10n.movedToTrashMessage(item.name),
+                                ),
+                                action: SnackBarAction(
+                                  label: l10n.undoButton,
+                                  onPressed: () async {
+                                    await ref
+                                        .read(binderRepositoryProvider)
+                                        .restoreItemFromTrash(item.id);
+                                    ref.invalidate(
+                                      binderItemsProvider(binder.id),
+                                    );
+                                    ref.invalidate(trashedItemsProvider);
+                                    ref.invalidate(portfolioValuationProvider);
+                                    ref.invalidate(deckInventoryMatchProvider);
+                                  },
+                                ),
+                              ),
+                            );
+                          }
+                        },
                 ),
               ),
             ),
@@ -347,14 +543,12 @@ class _BinderPages extends ConsumerWidget {
   int? _findAvailablePosition({
     required List<ItemModel> items,
     required int currentPage,
+    required int perSheet,
     required int maxSlots,
   }) {
     final occupied = items.map((item) => item.positionIndex).toSet();
-    final pageStart = currentPage * AppConstants.binderGridSize;
-    final pageEnd = (pageStart + AppConstants.binderGridSize).clamp(
-      0,
-      maxSlots,
-    );
+    final pageStart = currentPage * perSheet;
+    final pageEnd = (pageStart + perSheet).clamp(0, maxSlots);
     for (var position = pageStart; position < pageEnd; position++) {
       if (!occupied.contains(position)) {
         return position;
@@ -366,221 +560,6 @@ class _BinderPages extends ConsumerWidget {
       }
     }
     return null;
-  }
-}
-
-class _PocketGrid extends StatelessWidget {
-  const _PocketGrid({
-    required this.binder,
-    required this.startIndex,
-    required this.itemsByPosition,
-    required this.publicView,
-    this.publicBasePath,
-  });
-
-  final BinderModel binder;
-  final int startIndex;
-  final Map<int, ItemModel> itemsByPosition;
-  final bool publicView;
-  final String? publicBasePath;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 0.72,
-          mainAxisSpacing: 11,
-          crossAxisSpacing: 11,
-        ),
-        itemCount: 9,
-        itemBuilder: (context, index) {
-          final position = startIndex + index;
-          final item = itemsByPosition[position];
-          if (item == null) {
-            return _EmptyPocket(
-              position: position,
-              onTap: publicView
-                  ? null
-                  : () => context.push(
-                      '/binder/${binder.id}/catalog?position=$position',
-                    ),
-            );
-          }
-          return _ItemPocket(
-            item: item,
-            onTap: () {
-              final prefix = publicView
-                  ? (publicBasePath ?? '/public/binder/${binder.id}')
-                  : '/binder/${binder.id}';
-              context.push('$prefix/item/${item.id}');
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _EmptyPocket extends StatelessWidget {
-  const _EmptyPocket({required this.position, this.onTap});
-
-  final int position;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Semantics(
-      button: onTap != null,
-      label: l10n.emptySlot(position + 1),
-      child: Material(
-        color: AuraColors.smokedCharcoal.withValues(alpha: 0.65),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(13),
-          side: BorderSide(
-            color: AuraColors.champagneGold.withValues(alpha: 0.25),
-            width: 1.2,
-          ),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(13),
-          onTap: onTap,
-          child: Icon(
-            Icons.add,
-            color: AuraColors.champagneGold.withValues(alpha: 0.55),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ItemPocket extends StatelessWidget {
-  const _ItemPocket({required this.item, required this.onTap});
-
-  final ItemModel item;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final auraGlow = _auraColor(item);
-
-    return Semantics(
-      button: true,
-      label: l10n.openItem(item.name),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(13),
-          boxShadow: [
-            BoxShadow(
-              color: auraGlow.withValues(alpha: item.isFoil ? 0.36 : 0.18),
-              blurRadius: item.isFoil ? 12 : 7,
-            ),
-          ],
-        ),
-        child: Material(
-          color: AuraColors.smokedCharcoal,
-          borderRadius: BorderRadius.circular(13),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (!item.imageUrl.startsWith('mock://'))
-                  Image.network(
-                    item.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => AuraCardCrestPlaceholder(
-                      name: item.name,
-                      compact: true,
-                    ),
-                  )
-                else
-                  AuraCardCrestPlaceholder(name: item.name, compact: true),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: item.isFoil
-                          ? AuraColors.champagneLight
-                          : AuraColors.champagneDark,
-                      width: item.isFoil ? 1.8 : 1.2,
-                    ),
-                    borderRadius: BorderRadius.circular(13),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        AuraColors.obsidianVoid.withValues(alpha: 0.88),
-                      ],
-                      stops: const [0.55, 1],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 7,
-                  right: 7,
-                  bottom: 7,
-                  child: Text(
-                    item.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AuraColors.creamText,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ),
-                if (item.isFoil)
-                  Positioned(
-                    right: 5,
-                    top: 5,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AuraColors.solarGold,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        l10n.foilBadge,
-                        style: const TextStyle(
-                          color: AuraColors.obsidianVoid,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 9,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _auraColor(ItemModel item) {
-    final rarity = item.metadata['rarity']?.toString().toLowerCase() ?? '';
-    if (rarity.contains('mythic') || rarity.contains('special')) {
-      return AuraColors.psychicMagenta;
-    }
-    if (rarity.contains('rare')) {
-      return AuraColors.solarGold;
-    }
-    if (rarity.contains('uncommon')) {
-      return AuraColors.manaCyan;
-    }
-    return item.isFoil ? AuraColors.solarGold : AuraColors.emeraldAura;
   }
 }
 

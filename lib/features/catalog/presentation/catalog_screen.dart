@@ -10,9 +10,7 @@ import '../../../core/collections/collection_registry.dart';
 import '../../../core/models/binder_model.dart';
 import '../../../core/models/item_model.dart';
 import '../../../core/providers/app_providers.dart';
-import '../../../core/services/media_storage_service.dart';
 import '../../../core/theme/aura_colors.dart';
-import '../../../core/utils/image_compressor.dart';
 import '../../../core/widgets/aura_sigil_logo.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../binder/data/repositories/binder_repository.dart';
@@ -21,7 +19,11 @@ import '../data/catalog_repository.dart';
 import '../data/debounced_search.dart';
 import '../providers/catalog_providers.dart';
 import 'card_scanner_screen.dart';
+import 'widgets/batch_scanner_sheet.dart';
 import 'widgets/confirm_card_dialog.dart';
+import 'widgets/physical_item_tab.dart';
+
+export 'widgets/physical_item_tab.dart';
 
 enum _AddMode { search, scanner, photo }
 
@@ -180,6 +182,7 @@ class _CatalogBodyState extends ConsumerState<_CatalogBody> {
                     initialQuery: _scannedQuery,
                   ),
                   _AddMode.scanner => _CardScannerMode(
+                    binder: widget.binder,
                     collectionLabel: collectionLabel,
                     provider: _spec.catalogProvider,
                     onDetectedTitle: (title) {
@@ -193,27 +196,32 @@ class _CatalogBodyState extends ConsumerState<_CatalogBody> {
                       final selection = await showConfirmCardDialog(
                         context,
                         result: card,
+                        fromApiSearch: false,
                       );
                       if (selection == null || !mounted) {
                         return;
                       }
-                      final profile = await ref
-                          .read(activeProfileProvider.future);
-                      await ref
-                          .read(binderRepositoryProvider)
-                          .addItem(
-                            card
-                                .toItem(
-                                  binderId: widget.binder.id,
-                                  userId: profile.id,
-                                  positionIndex: widget.positionIndex,
-                                  condition: selection.condition,
-                                  isFoil: selection.isFoil,
-                                )
-                                .copyWith(
-                                  estimatedPrice: selection.estimatedPrice,
-                                ),
+                      final profile = await ref.read(
+                        activeProfileProvider.future,
+                      );
+                      final item = card
+                          .toItem(
+                            binderId: widget.binder.id,
+                            userId: profile.id,
+                            positionIndex: widget.positionIndex,
+                            condition: selection.condition,
+                            isFoil: selection.isFoil,
+                          )
+                          .copyWith(estimatedPrice: selection.estimatedPrice)
+                          .withVaultMetadata(
+                            verificationOrigin: ItemVerificationOrigin.scanned,
+                            tradeStatus: selection.tradeStatus,
+                            slabGrader: selection.slabGrader,
+                            slabScore: selection.slabScore,
+                            slabCert: selection.slabCert,
+                            purchaseCost: selection.purchaseCost,
                           );
+                      await ref.read(binderRepositoryProvider).addItem(item);
                       ref.invalidate(binderItemsProvider(widget.binder.id));
                       if (mounted) {
                         navigator.pop(true);
@@ -476,7 +484,41 @@ class _CardSearchTabState extends ConsumerState<CardSearchTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AuraColors.psychicMagenta.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AuraColors.psychicMagenta.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.cloud_outlined,
+                  size: 16,
+                  color: AuraColors.psychicMagenta,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${l10n.apiPolicyBannerTitle}: ${l10n.apiPolicyBannerBody}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AuraColors.creamText,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
           child: TextField(
             controller: _queryController,
             onChanged: (_) => _queueSearch(),
@@ -493,19 +535,20 @@ class _CardSearchTabState extends ConsumerState<CardSearchTab> {
                       tooltip: l10n.modeScanLabel,
                       icon: const Icon(Icons.document_scanner_outlined),
                       onPressed: () async {
-                        final scanned = await Navigator.of(context).push<Object?>(
-                          MaterialPageRoute(
-                            builder: (_) => CardScannerScreen(
-                              collectionLabel: collectionLabel,
-                              provider: widget.spec.catalogProvider,
-                            ),
-                          ),
-                        );
+                        final scanned = await Navigator.of(context)
+                            .push<Object?>(
+                              MaterialPageRoute(
+                                builder: (_) => CardScannerScreen(
+                                  collectionLabel: collectionLabel,
+                                  provider: widget.spec.catalogProvider,
+                                ),
+                              ),
+                            );
                         if (!mounted) {
                           return;
                         }
                         if (scanned is CatalogResult) {
-                          await _addResult(scanned);
+                          await _addResult(scanned, fromApiSearch: false);
                         } else if (scanned is String && scanned.isNotEmpty) {
                           _queryController.text = scanned;
                           _queueSearch();
@@ -568,7 +611,9 @@ class _CardSearchTabState extends ConsumerState<CardSearchTab> {
         final isAdding = _addingExternalId == result.externalId;
         return Card(
           child: ListTile(
-            onTap: _addingExternalId != null ? null : () => _addResult(result),
+            onTap: _addingExternalId != null
+                ? null
+                : () => _addResult(result, fromApiSearch: true),
             contentPadding: const EdgeInsets.all(12),
             leading: SizedBox(
               width: 48,
@@ -586,24 +631,37 @@ class _CardSearchTabState extends ConsumerState<CardSearchTab> {
                 Text(
                   result.metadata['expansion']?.toString() ?? collectionLabel,
                 ),
-                if (result.estimatedPrice != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    ref.watch(formatUsdProvider)(result.estimatedPrice!),
-                    style: const TextStyle(
-                      color: AuraColors.solarGold,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (result.estimatedPrice != null)
+                      Text(
+                        ref.watch(formatUsdProvider)(result.estimatedPrice!),
+                        style: const TextStyle(
+                          color: AuraColors.solarGold,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    Text(
+                      l10n.apiUnverifiedBadge,
+                      style: const TextStyle(
+                        color: AuraColors.psychicMagenta,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ],
             ),
             trailing: IconButton(
               tooltip: l10n.addItemButton,
               onPressed: _addingExternalId != null
                   ? null
-                  : () => _addResult(result),
+                  : () => _addResult(result, fromApiSearch: true),
               icon: isAdding
                   ? const SizedBox.square(
                       dimension: 18,
@@ -620,8 +678,15 @@ class _CardSearchTabState extends ConsumerState<CardSearchTab> {
     );
   }
 
-  Future<void> _addResult(CatalogResult result) async {
-    final selection = await showConfirmCardDialog(context, result: result);
+  Future<void> _addResult(
+    CatalogResult result, {
+    required bool fromApiSearch,
+  }) async {
+    final selection = await showConfirmCardDialog(
+      context,
+      result: result,
+      fromApiSearch: fromApiSearch,
+    );
     if (selection == null || !mounted) {
       return;
     }
@@ -629,19 +694,26 @@ class _CardSearchTabState extends ConsumerState<CardSearchTab> {
     setState(() => _addingExternalId = result.externalId);
     try {
       final profile = await ref.read(activeProfileProvider.future);
-      await ref
-          .read(binderRepositoryProvider)
-          .addItem(
-            result
-                .toItem(
-                  binderId: widget.binder.id,
-                  userId: profile.id,
-                  positionIndex: widget.positionIndex,
-                  condition: selection.condition,
-                  isFoil: selection.isFoil,
-                )
-                .copyWith(estimatedPrice: selection.estimatedPrice),
+      final item = result
+          .toItem(
+            binderId: widget.binder.id,
+            userId: profile.id,
+            positionIndex: widget.positionIndex,
+            condition: selection.condition,
+            isFoil: selection.isFoil,
+          )
+          .copyWith(estimatedPrice: selection.estimatedPrice)
+          .withVaultMetadata(
+            verificationOrigin: fromApiSearch
+                ? ItemVerificationOrigin.apiUnverified
+                : ItemVerificationOrigin.scanned,
+            tradeStatus: selection.tradeStatus,
+            slabGrader: selection.slabGrader,
+            slabScore: selection.slabScore,
+            slabCert: selection.slabCert,
+            purchaseCost: selection.purchaseCost,
           );
+      await ref.read(binderRepositoryProvider).addItem(item);
       ref.invalidate(binderItemsProvider(widget.binder.id));
       if (mounted) {
         await Navigator.of(context).maybePop();
@@ -685,12 +757,14 @@ class _CardSearchTabState extends ConsumerState<CardSearchTab> {
 
 class _CardScannerMode extends ConsumerStatefulWidget {
   const _CardScannerMode({
+    required this.binder,
     required this.collectionLabel,
     required this.onDetectedTitle,
     required this.onDetectedCard,
     this.provider,
   });
 
+  final BinderModel binder;
   final String collectionLabel;
   final CatalogProvider? provider;
   final ValueChanged<String> onDetectedTitle;
@@ -706,14 +780,14 @@ class _CardScannerModeState extends ConsumerState<_CardScannerMode> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 180,
-            height: 240,
+            width: 160,
+            height: 215,
             decoration: BoxDecoration(
               color: AuraColors.smokedCharcoal,
               borderRadius: BorderRadius.circular(18),
@@ -728,12 +802,12 @@ class _CardScannerModeState extends ConsumerState<_CardScannerMode> {
             child: const Center(
               child: Icon(
                 Icons.document_scanner_outlined,
-                size: 56,
+                size: 52,
                 color: AuraColors.manaCyan,
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Text(
             l10n.scannerHeadline(widget.collectionLabel),
             textAlign: TextAlign.center,
@@ -741,17 +815,23 @@ class _CardScannerModeState extends ConsumerState<_CardScannerMode> {
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             l10n.scannerSubtitle,
             textAlign: TextAlign.center,
             style: const TextStyle(color: AuraColors.mutedText),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           FilledButton.icon(
             onPressed: _scanning ? null : _openLiveScanner,
             icon: const Icon(Icons.document_scanner_outlined),
             label: Text(l10n.openScannerCameraButton),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _scanning ? null : _openBatchScanner,
+            icon: const Icon(Icons.filter_none_outlined),
+            label: Text(l10n.batchScannerButton),
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
@@ -780,6 +860,18 @@ class _CardScannerModeState extends ConsumerState<_CardScannerMode> {
       widget.onDetectedCard(scanned);
     } else if (scanned is String && scanned.isNotEmpty) {
       widget.onDetectedTitle(scanned);
+    }
+  }
+
+  Future<void> _openBatchScanner() async {
+    final added = await showBatchScannerSheet(
+      context,
+      binder: widget.binder,
+      collectionLabel: widget.collectionLabel,
+      provider: widget.provider,
+    );
+    if (added > 0 && mounted) {
+      Navigator.of(context).maybePop(true);
     }
   }
 
@@ -816,303 +908,6 @@ class _CardScannerModeState extends ConsumerState<_CardScannerMode> {
       if (mounted) {
         setState(() => _scanning = false);
       }
-    }
-  }
-}
-
-class PhysicalItemTab extends ConsumerStatefulWidget {
-  const PhysicalItemTab({
-    required this.binder,
-    required this.positionIndex,
-    super.key,
-  });
-
-  final BinderModel binder;
-  final int positionIndex;
-
-  @override
-  ConsumerState<PhysicalItemTab> createState() => _PhysicalItemTabState();
-}
-
-class _PhysicalItemTabState extends ConsumerState<PhysicalItemTab> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _typeController = TextEditingController();
-  final _priceController = TextEditingController();
-  final _notesController = TextEditingController();
-  String _condition = 'NM';
-  bool _isFoil = false;
-  XFile? _selectedImage;
-  CompressedImageResult? _compressedPreview;
-  bool _saving = false;
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _typeController.dispose();
-    _priceController.dispose();
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final imageSubtitle = _compressedPreview == null
-        ? l10n.imageReady
-        : l10n.webpSavingsSummary(
-            CompressedImageResult.formatSize(_compressedPreview!.originalBytes),
-            CompressedImageResult.formatSize(
-              _compressedPreview!.compressedBytes,
-            ),
-          );
-    return Form(
-      key: _formKey,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        children: [
-          if (_selectedImage != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                tileColor: AuraColors.smokedCharcoal,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                leading: const Icon(
-                  Icons.image_outlined,
-                  color: AuraColors.emeraldAura,
-                ),
-                title: Text(_selectedImage!.name),
-                subtitle: Text(imageSubtitle),
-                trailing: IconButton(
-                  tooltip: l10n.removeImageButton,
-                  onPressed: () => setState(() {
-                    _selectedImage = null;
-                    _compressedPreview = null;
-                  }),
-                  icon: const Icon(Icons.close),
-                ),
-              ),
-            ),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _saving ? null : () => _pick(ImageSource.gallery),
-                  icon: const Icon(Icons.photo_library_outlined),
-                  label: Text(l10n.galleryButton),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _saving ? null : () => _pick(ImageSource.camera),
-                  icon: const Icon(Icons.camera_alt_outlined),
-                  label: Text(l10n.cameraButton),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _nameController,
-            decoration: InputDecoration(labelText: l10n.itemNameLabel),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _typeController,
-            decoration: InputDecoration(
-              labelText: l10n.itemTypeLabel,
-              hintText: l10n.itemTypeHint,
-            ),
-          ),
-          const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
-            initialValue: _condition,
-            decoration: InputDecoration(labelText: l10n.conditionLabel),
-            items: [
-              DropdownMenuItem(value: 'NM', child: Text(l10n.conditionNm)),
-              DropdownMenuItem(value: 'LP', child: Text(l10n.conditionLp)),
-              DropdownMenuItem(value: 'MP', child: Text(l10n.conditionMp)),
-              DropdownMenuItem(value: 'HP', child: Text(l10n.conditionHp)),
-              DropdownMenuItem(
-                value: 'SEALED',
-                child: Text(l10n.conditionSealed),
-              ),
-            ],
-            onChanged: (value) =>
-                setState(() => _condition = value ?? _condition),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _priceController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: l10n.estimatedPriceLabel,
-              prefixText: '\$ ',
-            ),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _notesController,
-            minLines: 2,
-            maxLines: 4,
-            decoration: InputDecoration(labelText: l10n.notesLabel),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(l10n.foilLabel),
-            value: _isFoil,
-            onChanged: (value) => setState(() => _isFoil = value),
-          ),
-          const SizedBox(height: 14),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(l10n.saveItemButton),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _pick(ImageSource source) async {
-    final l10n = AppLocalizations.of(context);
-    try {
-      final image = await ref
-          .read(imagePickerProvider)
-          .pickImage(source: source, imageQuality: 100);
-      if (image == null || !mounted) {
-        return;
-      }
-      setState(() {
-        _selectedImage = image;
-        _compressedPreview = null;
-      });
-
-      try {
-        final stats = await ref
-            .read(imageCompressorProvider)
-            .compressToWebpWithStats(image.path);
-        if (mounted) {
-          setState(() => _compressedPreview = stats);
-        }
-      } on ImageCompressionException {
-        // Si la vista previa no puede comprimirse aún, se reintentará al guardar.
-      }
-
-      // Mejora aprobada: autocompletar título con OCR local en el dispositivo
-      // incluso para colecciones sin API pública (como Naruto).
-      if (_nameController.text.trim().isEmpty) {
-        final suggested = await ref
-            .read(cardTextExtractorProvider)
-            .extractSuggestedTitle(image.path);
-        if (mounted &&
-            suggested != null &&
-            suggested.isNotEmpty &&
-            _nameController.text.trim().isEmpty) {
-          setState(() => _nameController.text = suggested);
-        }
-      }
-    } on PlatformException {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(l10n.imagePermissionError)));
-      }
-    }
-  }
-
-  Future<void> _save() async {
-    final l10n = AppLocalizations.of(context);
-    if (_nameController.text.trim().isEmpty || _selectedImage == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.physicalFormRequired)));
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      final compressedBytes =
-          _compressedPreview?.bytes ??
-          await ref
-              .read(imageCompressorProvider)
-              .compressToWebp(_selectedImage!.path);
-      final imageUrl = await ref
-          .read(mediaStorageServiceProvider)
-          .storeWebp(
-            bytes: compressedBytes,
-            fileName: _selectedImage!.name.replaceFirst(
-              RegExp(r'\.[^.]+$'),
-              '',
-            ),
-          );
-      final profile = await ref.read(activeProfileProvider.future);
-      final customType = _typeController.text.trim();
-      await ref
-          .read(binderRepositoryProvider)
-          .addItem(
-            ItemModel(
-              id: 'upload-${DateTime.now().microsecondsSinceEpoch}',
-              binderId: widget.binder.id,
-              userId: profile.id,
-              collectionCode: widget.binder.collectionCode,
-              sourceType: 'user_upload',
-              name: _nameController.text.trim(),
-              imageUrl: imageUrl,
-              isFoil: _isFoil,
-              condition: _condition,
-              estimatedPrice: double.tryParse(_priceController.text.trim()),
-              positionIndex: widget.positionIndex,
-              metadata: {
-                'family': widget.binder.family,
-                if (customType.isNotEmpty) 'type': customType,
-              },
-              notes: _notesController.text.trim(),
-              createdAt: DateTime.now().toUtc(),
-            ),
-          );
-      ref.invalidate(binderItemsProvider(widget.binder.id));
-      if (mounted) {
-        await Navigator.of(context).maybePop();
-      }
-    } on ItemPositionException {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(l10n.pocketOccupiedError)));
-      }
-    } on BinderCapacityException {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(l10n.binderFullButton)));
-      }
-    } on ImageCompressionException {
-      _showImageError();
-    } on MediaStorageException {
-      _showImageError();
-    } on BinderRepositoryException {
-      _showImageError();
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
-  }
-
-  void _showImageError() {
-    if (mounted) {
-      final l10n = AppLocalizations.of(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.imageCompressionError)));
     }
   }
 }

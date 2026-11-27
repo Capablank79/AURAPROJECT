@@ -901,4 +901,403 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get notEnoughBankSpaces =>
       'No tienes suficientes espacios en tu Banco. Adquiere hojas en Ajustes.';
+
+  @override
+  String get navDecks => 'Mazos';
+
+  @override
+  String get apiPolicyBannerTitle => 'Política de Autenticidad Física';
+
+  @override
+  String get apiPolicyBannerBody =>
+      'Esta vitrina certifica cartas escaneadas con cámara. Si agregas desde el buscador API (modo prueba/referencia), quedará marcada públicamente como «API · Sin físico».';
+
+  @override
+  String get apiConfirmWarningTitle => 'Inserción desde API sin escaneo físico';
+
+  @override
+  String get apiConfirmWarningBody =>
+      'Llevará el sello público «API · SIN FÍSICO» para indicar a quien vea tu vitrina que aún no ha sido escaneada físicamente. No podrá ponerse en venta ni cambio.';
+
+  @override
+  String get apiUnverifiedBadge => 'API · SIN FÍSICO';
+
+  @override
+  String get apiReferenceWatermark => 'REFERENCIA API · NO FÍSICA';
+
+  @override
+  String get physicalVerifiedBadge => 'FÍSICA';
+
+  @override
+  String get physicalVerifiedBanner =>
+      'Posesión física verificada por escáner o fotografía.';
+
+  @override
+  String get apiUnverifiedBannerTitle =>
+      'Aviso público: Sin ejemplar físico verificado';
+
+  @override
+  String get apiUnverifiedBannerBody =>
+      'Agregada desde buscador API como referencia. No suma al patrimonio físico ni puede ofrecerse en cambio o venta.';
+
+  @override
+  String get verifyWithScannerButton => '📷 Ya la tengo: Verificar con escáner';
+
+  @override
+  String get verifiedSuccessMessage =>
+      '¡Pieza verificada como ejemplar físico escaneado!';
+
+  @override
+  String get trustBadgeFullPhysical => '🛡️ 100% Física Escaneada';
+
+  @override
+  String trustBadgeHasApi(int count) {
+    return '☁️ $count vía API sin verificar';
+  }
+
+  @override
+  String get filterAll => 'Todas';
+
+  @override
+  String get filterPhysicalOnly => '📸 Solo Físicas';
+
+  @override
+  String get filterForTrade => '🔄 Cambio';
+
+  @override
+  String get filterForSale => '💲 Venta';
+
+  @override
+  String get tradeStatusLabel => 'Estado comercial (Tradelist)';
+
+  @override
+  String get tradeStatusNone => 'Solo colección';
+
+  @override
+  String get tradeStatusForTrade => 'Disponible para cambio';
+
+  @override
+  String get tradeStatusForSale => 'En venta';
+
+  @override
+  String get tradeStatusWishlistApi => 'Referencia API (Sin físico)';
+
+  @override
+  String get tradeBadgeShort => 'CAMBIO';
+
+  @override
+  String get saleBadgeShort => 'VENTA';
+
+  @override
+  String get apiCannotTradeMessage =>
+      'Las referencias API sin escanear no pueden ponerse en venta ni cambio.';
+
+  @override
+  String get slabGraderLabel => 'Certificadora (Slab)';
+
+  @override
+  String get slabNoneOption => 'Sin gradear (Raw)';
+
+  @override
+  String get slabScoreLabel => 'Nota';
+
+  @override
+  String get slabCertLabel => 'N.º Cert.';
+
+  @override
+  String get purchaseCostLabel => 'Costo de compra';
+
+  @override
+  String get roiLabel => 'Plusvalía (ROI)';
+
+  @override
+  String get slabsCountLabel => 'Slabs certificados';
+
+  @override
+  String get tradelistCountLabel => 'En Tradelist';
+
+  @override
+  String get apiReferencesCountLabel => 'Referencias API (no físicas)';
+
+  @override
+  String get gridFormatLabel => 'Formato de cuadrícula';
+
+  @override
+  String get grid2x2Option => '2×2 Compacta (4 por hoja)';
+
+  @override
+  String get grid3x3Option => '3×3 Estándar (9 por hoja)';
+
+  @override
+  String get grid4x3ProOption => '4×3 Master XL (12 por hoja · Pro)';
+
+  @override
+  String get gridProRequiredMessage =>
+      'El formato panorámico 4×3 (12 por hoja) requiere Aura Pro.';
+
+  @override
+  String pocketRangeIndicator(int start, int end) {
+    return 'Bolsillos #$start – #$end';
+  }
+
+  @override
+  String get dragSwapHint =>
+      'Mantén presionada una pieza para arrastrarla a otro bolsillo';
+
+  @override
+  String get positionsSwappedMessage => 'Posiciones actualizadas en la hoja.';
+
+  @override
+  String get qrPosterButton => 'Póster QR Torneo';
+
+  @override
+  String get qrPosterTitle => 'Tarjeta QR de Vitrina';
+
+  @override
+  String get qrPosterTopGems => 'TOP PIEZAS FÍSICAS VERIFICADAS';
+
+  @override
+  String get shareQrLinkButton => 'Compartir enlace QR';
+
+  @override
+  String get batchScannerButton => 'Escáner por lote (Ráfaga)';
+
+  @override
+  String get batchScannerTitle => 'Bandeja de Escaneo por Lote';
+
+  @override
+  String get batchScannerHint =>
+      'Captura varias cartas seguidas con ML Kit e insértalas juntas en bolsillos libres.';
+
+  @override
+  String get batchScanNextButton => 'Capturar siguiente carta';
+
+  @override
+  String get batchGalleryButton => 'Añadir foto desde galería';
+
+  @override
+  String get batchEmptyMessage => 'Aún no hay cartas en la bandeja de lote.';
+
+  @override
+  String batchCommitButton(int count) {
+    return 'Insertar lote ($count)';
+  }
+
+  @override
+  String batchCommittedMessage(int count) {
+    return 'Se insertaron $count piezas físicas en bolsillos consecutivos.';
+  }
+
+  @override
+  String get decksTitle => 'Constructor de Mazos';
+
+  @override
+  String get decksSubtitle =>
+      'Cruza tus listas con tus vitrinas físicas verificadas.';
+
+  @override
+  String get newDeckButton => 'Nuevo mazo';
+
+  @override
+  String get createDeckTitle => 'Crear nuevo mazo';
+
+  @override
+  String get deckNameLabel => 'Nombre del mazo';
+
+  @override
+  String get deckFormatLabel => 'Formato (ej. Commander, Standard)';
+
+  @override
+  String get importExportDeckButton => 'Importar / Exportar';
+
+  @override
+  String get deckIoHint =>
+      'Una carta por línea (ej. 1 Sol Ring o 4 Lightning Bolt)';
+
+  @override
+  String get applyDecklistButton => 'Aplicar lista';
+
+  @override
+  String get copyDecklistButton => 'Copiar lista';
+
+  @override
+  String get deckCopiedMessage => 'Lista de mazo copiada al portapapeles.';
+
+  @override
+  String ownedInShowcaseBadge(int count, String location) {
+    return '✓ Físicas ($count): $location';
+  }
+
+  @override
+  String missingFromShowcasesBadge(String price) {
+    return '✗ Faltante en vitrinas · Est. $price';
+  }
+
+  @override
+  String get ownedVsTotalLabel => 'Físicas en vitrinas';
+
+  @override
+  String get missingCostLabel => 'Costo faltantes';
+
+  @override
+  String get manaCurveTitle => 'Curva de coste';
+
+  @override
+  String get addCardToDeckHint => 'Añadir carta al mazo…';
+
+  @override
+  String addedToDeckMessage(String name, String deck) {
+    return '«$name» añadida a «$deck».';
+  }
+
+  @override
+  String get selectDeckTitle => 'Elegir mazo destino';
+
+  @override
+  String get noDecksYetMessage =>
+      'Aún no tienes mazos creados. Crea el primero para vincular tus cartas.';
+
+  @override
+  String get scannerZoneTitleLabel => 'NOMBRE';
+
+  @override
+  String get scannerZoneSetLabel => 'SET · N.º';
+
+  @override
+  String get scannerStreamActiveBadge => '⚡ STREAM ÓPTICO EN VIVO';
+
+  @override
+  String scannerVariantSelectorLabel(int count) {
+    return 'Ediciones detectadas ($count)';
+  }
+
+  @override
+  String scannerCenteringLabel(String ratio, String grade) {
+    return 'Pre-Grading · Centrado $ratio ($grade)';
+  }
+
+  @override
+  String get proofSnapshotSavedBadge => '📸 Evidencia física capturada';
+
+  @override
+  String get viewOfficialArtToggle => 'Arte Oficial';
+
+  @override
+  String get viewProofPhotoToggle => 'Foto Escaneada';
+
+  @override
+  String get trashBinTitle => 'Papelera de Eliminación';
+
+  @override
+  String get trashBinSubtitle =>
+      'Las piezas eliminadas se guardan aquí por seguridad. Puedes restaurarlas a su bolsillo o vaciarlas definitivamente.';
+
+  @override
+  String get trashBinEmptyMessage => 'La papelera está vacía.';
+
+  @override
+  String trashBinCountBadge(int count) {
+    return 'Papelera ($count)';
+  }
+
+  @override
+  String get moveToTrashButton => 'Enviar a la papelera';
+
+  @override
+  String moveToTrashConfirm(String name) {
+    return '«$name» saldrá del bolsillo y pasará a la Papelera de Eliminación (podrás restaurarla cuando quieras).';
+  }
+
+  @override
+  String movedToTrashMessage(String name) {
+    return '«$name» enviada a la papelera.';
+  }
+
+  @override
+  String get undoButton => 'Deshacer';
+
+  @override
+  String get restoreFromTrashButton => 'Restaurar';
+
+  @override
+  String restoredFromTrashMessage(String name, int pocket) {
+    return '«$name» restaurada al bolsillo #$pocket.';
+  }
+
+  @override
+  String get permanentDeleteButton => 'Eliminar definitivo';
+
+  @override
+  String get emptyTrashButton => 'Vaciar papelera';
+
+  @override
+  String emptyTrashConfirm(int count) {
+    return '¿Eliminar definitivamente las $count piezas de la papelera? Esta acción no se puede deshacer.';
+  }
+
+  @override
+  String get trashDropZoneHint => '🗑️ Suelta aquí para enviar a la Papelera';
+
+  @override
+  String trashOriginLabel(String binder, int pocket) {
+    return 'De: $binder · Bolsillo #$pocket';
+  }
+
+  @override
+  String get deckGameTypeLabel => 'Juego del mazo';
+
+  @override
+  String get deleteDeckButton => 'Eliminar mazo';
+
+  @override
+  String get deckFilterAll => 'Todas';
+
+  @override
+  String get deckFilterOwned => '✓ En Vitrinas';
+
+  @override
+  String get deckFilterMissing => '✗ Faltantes';
+
+  @override
+  String get pullListButton => 'Lista de Extracción';
+
+  @override
+  String get pullListTitle => 'Localizador Físico · Lista de Extracción';
+
+  @override
+  String get pullListSubtitle =>
+      'Ubicación exacta de cada carta física que debes sacar de tus vitrinas para armar este mazo:';
+
+  @override
+  String get pullListEmpty =>
+      'Aún no tienes cartas físicas de este mazo localizadas en tus vitrinas.';
+
+  @override
+  String get openInShowcaseTooltip => 'Ir a la pieza en vitrina';
+
+  @override
+  String get editProfileButton => 'Editar perfil';
+
+  @override
+  String get displayNameLabel => 'Nombre visible';
+
+  @override
+  String get tradeContactLabel => 'Contacto Tradelist (ej. @usuario / Discord)';
+
+  @override
+  String get tradeContactHint =>
+      'Visible en tus vitrinas públicas para acordar cambios o ventas';
+
+  @override
+  String contactSellerButton(String handle) {
+    return 'Contactar ($handle)';
+  }
+
+  @override
+  String contactCopiedMessage(String handle) {
+    return 'Contacto «$handle» copiado al portapapeles.';
+  }
+
+  @override
+  String get costBasisLabel => 'Costo adquisición';
 }

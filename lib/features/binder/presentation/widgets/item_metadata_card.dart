@@ -33,11 +33,41 @@ class _ItemMetadataCardState extends ConsumerState<ItemMetadataCard> {
     final rarity = _readValue(['rarity']);
     final number = _readValue(['number', 'collector_number']);
     final rulesText = _readValue(['oracleText', 'oracle_text']);
+    final slabGrader = _readValue(['slab_grader']);
+    final slabScore = _readValue(['slab_score']) ?? '10';
+    final slabCert = _readValue(['slab_cert']);
+    final centering = _readValue(['centering_ratio']);
+    final estGrade = _readValue(['estimated_grade']);
+    final purchaseCost = (widget.metadata['purchase_cost'] as num?)?.toDouble();
     final formatUsd = ref.watch(formatUsdProvider);
+
+    final slabSummary = slabGrader == null
+        ? null
+        : '$slabGrader $slabScore${slabCert != null ? ' · #$slabCert' : ''}';
+    final roiDelta = (widget.estimatedPrice != null && purchaseCost != null)
+        ? widget.estimatedPrice! - purchaseCost
+        : null;
 
     final rows = <(String, String)>[
       if (widget.estimatedPrice != null)
         (l10n.estimatedPriceLabel, formatUsd(widget.estimatedPrice!)),
+      if (purchaseCost != null)
+        (l10n.purchaseCostLabel, formatUsd(purchaseCost)),
+      if (roiDelta != null)
+        (
+          l10n.roiLabel,
+          '${roiDelta >= 0 ? '+' : '-'}${formatUsd(roiDelta.abs())}',
+        ),
+      if (slabSummary != null) (l10n.slabGraderLabel, slabSummary),
+      if (centering != null)
+        (
+          l10n
+              .scannerCenteringLabel(centering, estGrade ?? 'PSA 10')
+              .split('·')
+              .first
+              .trim(),
+          estGrade != null ? '$centering ($estGrade)' : centering,
+        ),
       if (expansion != null) (l10n.expansionLabel, expansion),
       if (cardType != null) (l10n.cardTypeLabel, cardType),
       if (rarity != null) (l10n.rarityLabel, rarity),
@@ -71,7 +101,7 @@ class _ItemMetadataCardState extends ConsumerState<ItemMetadataCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    width: 110,
+                    width: 118,
                     child: Text(
                       label,
                       style: const TextStyle(

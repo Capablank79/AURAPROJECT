@@ -859,4 +859,389 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get notEnoughBankSpaces => 'スペースバンクの空きが不足しています。設定からシートを追加してください。';
+
+  @override
+  String get navDecks => 'デッキ';
+
+  @override
+  String get apiPolicyBannerTitle => '実物認証ポリシー';
+
+  @override
+  String get apiPolicyBannerBody =>
+      'このバインダーはカメラスキャン済みカードを認証します。API検索から追加した場合、公開画面で「API・実物未確認」と表示されます。';
+
+  @override
+  String get apiConfirmWarningTitle => 'スキャンなしのAPI登録';
+
+  @override
+  String get apiConfirmWarningBody =>
+      'カメラスキャンされていないことを示す「API・実物なし」バッジが付与され、販売・トレード設定はできません。';
+
+  @override
+  String get apiUnverifiedBadge => 'API・実物なし';
+
+  @override
+  String get apiReferenceWatermark => 'API参照・実物未確認';
+
+  @override
+  String get physicalVerifiedBadge => '実物確認済';
+
+  @override
+  String get physicalVerifiedBanner => 'スキャナーまたは写真により実物所有が確認されています。';
+
+  @override
+  String get apiUnverifiedBannerTitle => '公開通知：実物カード未確認';
+
+  @override
+  String get apiUnverifiedBannerBody =>
+      'API検索から参照用として追加されました。実物評価額には加算されず、トレード・販売はできません。';
+
+  @override
+  String get verifyWithScannerButton => '📷 実物をスキャンして認証する';
+
+  @override
+  String get verifiedSuccessMessage => '実物カードとして認証されました！';
+
+  @override
+  String get trustBadgeFullPhysical => '🛡️ 100% 実物スキャン済';
+
+  @override
+  String trustBadgeHasApi(int count) {
+    return '☁️ API参照 $count枚';
+  }
+
+  @override
+  String get filterAll => 'すべて';
+
+  @override
+  String get filterPhysicalOnly => '📸 実物のみ';
+
+  @override
+  String get filterForTrade => '🔄 トレード可';
+
+  @override
+  String get filterForSale => '💲 販売中';
+
+  @override
+  String get tradeStatusLabel => 'トレードステータス';
+
+  @override
+  String get tradeStatusNone => 'コレクションのみ';
+
+  @override
+  String get tradeStatusForTrade => 'トレード可能';
+
+  @override
+  String get tradeStatusForSale => '販売中';
+
+  @override
+  String get tradeStatusWishlistApi => 'API参照（実物なし）';
+
+  @override
+  String get tradeBadgeShort => 'トレード';
+
+  @override
+  String get saleBadgeShort => '販売';
+
+  @override
+  String get apiCannotTradeMessage => '未スキャンのAPI参照カードは販売・トレードに設定できません。';
+
+  @override
+  String get slabGraderLabel => '鑑定機関 (Slab)';
+
+  @override
+  String get slabNoneOption => '未鑑定 (Raw)';
+
+  @override
+  String get slabScoreLabel => 'グレード';
+
+  @override
+  String get slabCertLabel => '証明番号';
+
+  @override
+  String get purchaseCostLabel => '購入価格';
+
+  @override
+  String get roiLabel => '評価損益 (ROI)';
+
+  @override
+  String get slabsCountLabel => '鑑定スラブ数';
+
+  @override
+  String get tradelistCountLabel => 'トレード出品数';
+
+  @override
+  String get apiReferencesCountLabel => 'API参照（未確認）';
+
+  @override
+  String get gridFormatLabel => 'グリッド形式';
+
+  @override
+  String get grid2x2Option => '2×2 コンパクト (4枚/シート)';
+
+  @override
+  String get grid3x3Option => '3×3 スタンダード (9枚/シート)';
+
+  @override
+  String get grid4x3ProOption => '4×3 マスターXL (12枚/シート・Pro)';
+
+  @override
+  String get gridProRequiredMessage => '4×3 形式には Aura Pro が必要です。';
+
+  @override
+  String pocketRangeIndicator(int start, int end) {
+    return 'ポケット #$start – #$end';
+  }
+
+  @override
+  String get dragSwapHint => '長押しドラッグでポケットの位置を入れ替えられます';
+
+  @override
+  String get positionsSwappedMessage => 'ポケットの位置を更新しました。';
+
+  @override
+  String get qrPosterButton => '大会用QRポスター';
+
+  @override
+  String get qrPosterTitle => 'バインダーQRカード';
+
+  @override
+  String get qrPosterTopGems => '認証済み実物トップカード';
+
+  @override
+  String get shareQrLinkButton => 'QRリンクを共有';
+
+  @override
+  String get batchScannerButton => '連続スキャン（一括）';
+
+  @override
+  String get batchScannerTitle => '連続スキャン待機リスト';
+
+  @override
+  String get batchScannerHint => 'ML Kitで複数のカードを続けて読み取り、空きポケットへ一括収納します。';
+
+  @override
+  String get batchScanNextButton => '次のカードを撮影';
+
+  @override
+  String get batchGalleryButton => 'ギャラリーから追加';
+
+  @override
+  String get batchEmptyMessage => '待機リストにカードがありません。';
+
+  @override
+  String batchCommitButton(int count) {
+    return '一括収納 ($count)';
+  }
+
+  @override
+  String batchCommittedMessage(int count) {
+    return '$count枚の実物カードを連続ポケットに収納しました。';
+  }
+
+  @override
+  String get decksTitle => 'デッキ構築';
+
+  @override
+  String get decksSubtitle => 'デッキリストと認証済み実物バインダーを照合します。';
+
+  @override
+  String get newDeckButton => '新規デッキ';
+
+  @override
+  String get createDeckTitle => '新しいデッキを作成';
+
+  @override
+  String get deckNameLabel => 'デッキ名';
+
+  @override
+  String get deckFormatLabel => 'フォーマット (例: Commander, Standard)';
+
+  @override
+  String get importExportDeckButton => 'インポート / エクスポート';
+
+  @override
+  String get deckIoHint => '1行に1枚入力 (例: 1 Sol Ring)';
+
+  @override
+  String get applyDecklistButton => 'リストを反映';
+
+  @override
+  String get copyDecklistButton => 'リストをコピー';
+
+  @override
+  String get deckCopiedMessage => 'デッキリストをコピーしました。';
+
+  @override
+  String ownedInShowcaseBadge(int count, String location) {
+    return '✓ 所有 ($count): $location';
+  }
+
+  @override
+  String missingFromShowcasesBadge(String price) {
+    return '✗ 未所有 · 推定 $price';
+  }
+
+  @override
+  String get ownedVsTotalLabel => 'バインダー所有数';
+
+  @override
+  String get missingCostLabel => '不足分の推定額';
+
+  @override
+  String get manaCurveTitle => 'コストカーブ';
+
+  @override
+  String get addCardToDeckHint => 'デッキにカードを追加…';
+
+  @override
+  String addedToDeckMessage(String name, String deck) {
+    return '「$name」を「$deck」に追加しました。';
+  }
+
+  @override
+  String get selectDeckTitle => '追加先デッキを選択';
+
+  @override
+  String get noDecksYetMessage => 'デッキがまだありません。最初のデッキを作成してください。';
+
+  @override
+  String get scannerZoneTitleLabel => 'カード名';
+
+  @override
+  String get scannerZoneSetLabel => 'セット・番号';
+
+  @override
+  String get scannerStreamActiveBadge => '⚡ ライブ光学スキャン';
+
+  @override
+  String scannerVariantSelectorLabel(int count) {
+    return '検出された収録版 ($count)';
+  }
+
+  @override
+  String scannerCenteringLabel(String ratio, String grade) {
+    return 'センタリング $ratio ($grade)';
+  }
+
+  @override
+  String get proofSnapshotSavedBadge => '📸 実物証明キャプチャ済み';
+
+  @override
+  String get viewOfficialArtToggle => '公式アート';
+
+  @override
+  String get viewProofPhotoToggle => 'スキャン実物';
+
+  @override
+  String get trashBinTitle => '削除ゴミ箱';
+
+  @override
+  String get trashBinSubtitle => '削除したカードはここに一時保管されます。元のポケットへ復元、または完全削除できます。';
+
+  @override
+  String get trashBinEmptyMessage => 'ゴミ箱は空です。';
+
+  @override
+  String trashBinCountBadge(int count) {
+    return 'ゴミ箱 ($count)';
+  }
+
+  @override
+  String get moveToTrashButton => 'ゴミ箱へ移動';
+
+  @override
+  String moveToTrashConfirm(String name) {
+    return '「$name」をポケットから外してゴミ箱へ移動します（いつでも復元可能）。';
+  }
+
+  @override
+  String movedToTrashMessage(String name) {
+    return '「$name」をゴミ箱へ移動しました。';
+  }
+
+  @override
+  String get undoButton => '元に戻す';
+
+  @override
+  String get restoreFromTrashButton => '復元';
+
+  @override
+  String restoredFromTrashMessage(String name, int pocket) {
+    return '「$name」をポケット #$pocket に復元しました。';
+  }
+
+  @override
+  String get permanentDeleteButton => '完全削除';
+
+  @override
+  String get emptyTrashButton => 'ゴミ箱を空にする';
+
+  @override
+  String emptyTrashConfirm(int count) {
+    return 'ゴミ箱内の$count件を完全に削除しますか？元に戻せません。';
+  }
+
+  @override
+  String get trashDropZoneHint => '🗑️ ここにドロップしてゴミ箱へ送る';
+
+  @override
+  String trashOriginLabel(String binder, int pocket) {
+    return '元: $binder · ポケット #$pocket';
+  }
+
+  @override
+  String get deckGameTypeLabel => '対応カードゲーム';
+
+  @override
+  String get deleteDeckButton => 'デッキ削除';
+
+  @override
+  String get deckFilterAll => 'すべて';
+
+  @override
+  String get deckFilterOwned => '✓ 所有済み';
+
+  @override
+  String get deckFilterMissing => '✗ 未所有';
+
+  @override
+  String get pullListButton => 'ピッキングリスト';
+
+  @override
+  String get pullListTitle => '実物ロケーター・ピッキング一覧';
+
+  @override
+  String get pullListSubtitle => 'このデッキを組むためにバインダーから取り出す実物カードの位置一覧：';
+
+  @override
+  String get pullListEmpty => 'このデッキの実物カードはまだバインダー内にありません。';
+
+  @override
+  String get openInShowcaseTooltip => 'バインダー内のカードを開く';
+
+  @override
+  String get editProfileButton => 'プロフィール編集';
+
+  @override
+  String get displayNameLabel => '表示名';
+
+  @override
+  String get tradeContactLabel => 'トレード連絡先 (例: @handle / Discord)';
+
+  @override
+  String get tradeContactHint => '公開バインダーに表示され、交換・売買の連絡に使われます';
+
+  @override
+  String contactSellerButton(String handle) {
+    return '連絡する ($handle)';
+  }
+
+  @override
+  String contactCopiedMessage(String handle) {
+    return '連絡先「$handle」をコピーしました。';
+  }
+
+  @override
+  String get costBasisLabel => '取得原価';
 }

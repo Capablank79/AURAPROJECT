@@ -9,6 +9,22 @@ import '../../profile/data/report_repository.dart';
 import '../data/mock_binder_repository.dart';
 import '../data/repositories/binder_repository.dart';
 
+int slotsPerSheetForFormat(String gridFormat) {
+  return switch (gridFormat) {
+    '2x2' => 4,
+    '4x3' => 12,
+    _ => 9,
+  };
+}
+
+int gridCrossAxisCountForFormat(String gridFormat) {
+  return switch (gridFormat) {
+    '2x2' => 2,
+    '4x3' => 4,
+    _ => 3,
+  };
+}
+
 final binderRepositoryProvider = Provider<BinderRepository>(
   (ref) => MockBinderRepository(),
 );
@@ -46,30 +62,78 @@ final reportsProvider = FutureProvider<List<ReportModel>>(
   (ref) => ref.watch(reportRepositoryProvider).getReports(),
 );
 
+final trashedItemsProvider = FutureProvider<List<TrashedItemRecord>>(
+  (ref) => ref.watch(binderRepositoryProvider).getTrashedItems(),
+);
+
 class PortfolioValuation {
   const PortfolioValuation({
     required this.totalItems,
     required this.totalValue,
+    this.totalValueWithCost = 0,
+    this.unverifiedApiItems = 0,
+    this.costBasis = 0,
+    this.slabsCount = 0,
+    this.tradeCount = 0,
   });
 
   final int totalItems;
   final double totalValue;
+  final double totalValueWithCost;
+  final int unverifiedApiItems;
+  final double costBasis;
+  final int slabsCount;
+  final int tradeCount;
+
+  double get netRoi => costBasis > 0 ? totalValueWithCost - costBasis : 0;
+
+  double get roiPercent => costBasis > 0 ? (netRoi / costBasis) * 100 : 0;
 }
 
 final portfolioValuationProvider = FutureProvider<PortfolioValuation>((
   ref,
 ) async {
   final binders = await ref.watch(bindersProvider.future);
-  var totalItems = 0;
+  var verifiedItems = 0;
+  var unverifiedApi = 0;
   var totalValue = 0.0;
+  var totalValueWithCost = 0.0;
+  var costBasis = 0.0;
+  var slabsCount = 0;
+  var tradeCount = 0;
+
   for (final binder in binders) {
     final items = await ref.watch(binderItemsProvider(binder.id).future);
-    totalItems += items.length;
     for (final item in items) {
-      totalValue += item.estimatedPrice ?? 0;
+      if (!item.isPhysicallyVerified) {
+        unverifiedApi++;
+        continue;
+      }
+      verifiedItems++;
+      final price = item.estimatedPrice ?? 0;
+      totalValue += price;
+      if (item.purchaseCost != null) {
+        costBasis += item.purchaseCost!;
+        totalValueWithCost += price;
+      }
+      if (item.hasSlab) {
+        slabsCount++;
+      }
+      if (item.tradeStatus == ItemTradeStatus.forTrade ||
+          item.tradeStatus == ItemTradeStatus.forSale) {
+        tradeCount++;
+      }
     }
   }
-  return PortfolioValuation(totalItems: totalItems, totalValue: totalValue);
+  return PortfolioValuation(
+    totalItems: verifiedItems,
+    totalValue: totalValue,
+    totalValueWithCost: totalValueWithCost,
+    unverifiedApiItems: unverifiedApi,
+    costBasis: costBasis,
+    slabsCount: slabsCount,
+    tradeCount: tradeCount,
+  );
 });
 
 final itemProvider =

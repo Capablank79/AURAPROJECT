@@ -41,6 +41,7 @@ class _BinderManageSheet extends ConsumerStatefulWidget {
 class _BinderManageSheetState extends ConsumerState<_BinderManageSheet> {
   late final TextEditingController _titleController;
   late bool _isPublic;
+  late String _gridFormat;
   late int _maxSlots;
   late bool _isCompleted;
   bool _saving = false;
@@ -50,6 +51,7 @@ class _BinderManageSheetState extends ConsumerState<_BinderManageSheet> {
     super.initState();
     _titleController = TextEditingController(text: widget.binder.title);
     _isPublic = widget.binder.isPublic;
+    _gridFormat = widget.binder.gridFormat;
     _maxSlots = widget.binder.maxSlots;
     _isCompleted = widget.binder.isCompleted;
   }
@@ -103,6 +105,37 @@ class _BinderManageSheetState extends ConsumerState<_BinderManageSheet> {
                 title: Text(l10n.publicBinderLabel),
                 value: _isPublic,
                 onChanged: (v) => setState(() => _isPublic = v),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _gridFormat,
+                decoration: InputDecoration(labelText: l10n.gridFormatLabel),
+                items: [
+                  DropdownMenuItem(
+                    value: '2x2',
+                    child: Text(l10n.grid2x2Option),
+                  ),
+                  DropdownMenuItem(
+                    value: '3x3',
+                    child: Text(l10n.grid3x3Option),
+                  ),
+                  DropdownMenuItem(
+                    value: '4x3',
+                    child: Text(l10n.grid4x3ProOption),
+                  ),
+                ],
+                onChanged: (next) {
+                  if (next == null) {
+                    return;
+                  }
+                  if (next == '4x3' && !isPro) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.gridProRequiredMessage)),
+                    );
+                    return;
+                  }
+                  setState(() => _gridFormat = next);
+                },
               ),
               const Divider(height: 24),
               Text(
@@ -255,6 +288,7 @@ class _BinderManageSheetState extends ConsumerState<_BinderManageSheet> {
           .updateBinder(
             binderId: widget.binder.id,
             title: _titleController.text.trim(),
+            gridFormat: _gridFormat,
             isPublic: _isPublic,
           );
       ref.invalidate(binderProvider(widget.binder.id));

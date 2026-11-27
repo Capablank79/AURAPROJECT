@@ -897,4 +897,403 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get notEnoughBankSpaces =>
       'Espaços insuficientes no seu Banco. Adquira folhas em Ajustes.';
+
+  @override
+  String get navDecks => 'Decks';
+
+  @override
+  String get apiPolicyBannerTitle => 'Política de Autenticidade Física';
+
+  @override
+  String get apiPolicyBannerBody =>
+      'Esta vitrine certifica cartas escaneadas com câmera. Se adicionar pela busca da API, ficará marcada publicamente como «API · Sem físico».';
+
+  @override
+  String get apiConfirmWarningTitle =>
+      'Inserção via API sem escaneamento físico';
+
+  @override
+  String get apiConfirmWarningBody =>
+      'Receberá o selo público «API · SEM FÍSICO» para indicar que ainda não foi escaneada fisicamente. Não pode ser colocada para troca ou venda.';
+
+  @override
+  String get apiUnverifiedBadge => 'API · SEM FÍSICO';
+
+  @override
+  String get apiReferenceWatermark => 'REFERÊNCIA API · NÃO FÍSICA';
+
+  @override
+  String get physicalVerifiedBadge => 'FÍSICA';
+
+  @override
+  String get physicalVerifiedBanner =>
+      'Posse física verificada por scanner ou fotografia.';
+
+  @override
+  String get apiUnverifiedBannerTitle =>
+      'Aviso público: Sem exemplar físico verificado';
+
+  @override
+  String get apiUnverifiedBannerBody =>
+      'Adicionada pela API como referência. Não soma ao patrimônio físico nem entra em troca ou venda.';
+
+  @override
+  String get verifyWithScannerButton => '📷 Já tenho: Verificar com scanner';
+
+  @override
+  String get verifiedSuccessMessage =>
+      'Peça verificada como exemplar físico escaneado!';
+
+  @override
+  String get trustBadgeFullPhysical => '🛡️ 100% Física Escaneada';
+
+  @override
+  String trustBadgeHasApi(int count) {
+    return '☁️ $count via API sem verificar';
+  }
+
+  @override
+  String get filterAll => 'Todas';
+
+  @override
+  String get filterPhysicalOnly => '📸 Só Físicas';
+
+  @override
+  String get filterForTrade => '🔄 Troca';
+
+  @override
+  String get filterForSale => '💲 Venda';
+
+  @override
+  String get tradeStatusLabel => 'Status comercial (Tradelist)';
+
+  @override
+  String get tradeStatusNone => 'Apenas coleção';
+
+  @override
+  String get tradeStatusForTrade => 'Disponível para troca';
+
+  @override
+  String get tradeStatusForSale => 'À venda';
+
+  @override
+  String get tradeStatusWishlistApi => 'Referência API (Sem físico)';
+
+  @override
+  String get tradeBadgeShort => 'TROCA';
+
+  @override
+  String get saleBadgeShort => 'VENDA';
+
+  @override
+  String get apiCannotTradeMessage =>
+      'Referências de API não escaneadas não podem ser vendidas ou trocadas.';
+
+  @override
+  String get slabGraderLabel => 'Certificadora (Slab)';
+
+  @override
+  String get slabNoneOption => 'Sem graduação (Raw)';
+
+  @override
+  String get slabScoreLabel => 'Nota';
+
+  @override
+  String get slabCertLabel => 'Nº Cert.';
+
+  @override
+  String get purchaseCostLabel => 'Custo de compra';
+
+  @override
+  String get roiLabel => 'Valorização (ROI)';
+
+  @override
+  String get slabsCountLabel => 'Slabs certificados';
+
+  @override
+  String get tradelistCountLabel => 'Na Tradelist';
+
+  @override
+  String get apiReferencesCountLabel => 'Referências API (não físicas)';
+
+  @override
+  String get gridFormatLabel => 'Formato da grade';
+
+  @override
+  String get grid2x2Option => '2×2 Compacta (4 por folha)';
+
+  @override
+  String get grid3x3Option => '3×3 Padrão (9 por folha)';
+
+  @override
+  String get grid4x3ProOption => '4×3 Master XL (12 por folha · Pro)';
+
+  @override
+  String get gridProRequiredMessage =>
+      'O formato panorâmico 4×3 requer Aura Pro.';
+
+  @override
+  String pocketRangeIndicator(int start, int end) {
+    return 'Bolsos #$start – #$end';
+  }
+
+  @override
+  String get dragSwapHint => 'Segure um item para arrastar e trocar de bolso';
+
+  @override
+  String get positionsSwappedMessage => 'Posições atualizadas na folha.';
+
+  @override
+  String get qrPosterButton => 'Pôster QR Torneio';
+
+  @override
+  String get qrPosterTitle => 'Cartão QR da Vitrine';
+
+  @override
+  String get qrPosterTopGems => 'TOP PEÇAS FÍSICAS VERIFICADAS';
+
+  @override
+  String get shareQrLinkButton => 'Compartilhar link QR';
+
+  @override
+  String get batchScannerButton => 'Scanner em lote';
+
+  @override
+  String get batchScannerTitle => 'Fila de Scanner em Lote';
+
+  @override
+  String get batchScannerHint =>
+      'Capture várias cartas seguidas com ML Kit e insira todas juntas em bolsos livres.';
+
+  @override
+  String get batchScanNextButton => 'Capturar próxima carta';
+
+  @override
+  String get batchGalleryButton => 'Adicionar foto da galeria';
+
+  @override
+  String get batchEmptyMessage => 'Ainda não há cartas na fila em lote.';
+
+  @override
+  String batchCommitButton(int count) {
+    return 'Inserir lote ($count)';
+  }
+
+  @override
+  String batchCommittedMessage(int count) {
+    return '$count peças físicas inseridas em bolsos consecutivos.';
+  }
+
+  @override
+  String get decksTitle => 'Construtor de Decks';
+
+  @override
+  String get decksSubtitle =>
+      'Cruze suas listas com suas vitrines físicas verificadas.';
+
+  @override
+  String get newDeckButton => 'Novo deck';
+
+  @override
+  String get createDeckTitle => 'Criar novo deck';
+
+  @override
+  String get deckNameLabel => 'Nome do deck';
+
+  @override
+  String get deckFormatLabel => 'Formato (ex. Commander, Standard)';
+
+  @override
+  String get importExportDeckButton => 'Importar / Exportar';
+
+  @override
+  String get deckIoHint =>
+      'Uma carta por linha (ex. 1 Sol Ring ou 4 Lightning Bolt)';
+
+  @override
+  String get applyDecklistButton => 'Aplicar lista';
+
+  @override
+  String get copyDecklistButton => 'Copiar lista';
+
+  @override
+  String get deckCopiedMessage => 'Lista copiada para a área de transferência.';
+
+  @override
+  String ownedInShowcaseBadge(int count, String location) {
+    return '✓ Físicas ($count): $location';
+  }
+
+  @override
+  String missingFromShowcasesBadge(String price) {
+    return '✗ Faltando nas vitrines · Est. $price';
+  }
+
+  @override
+  String get ownedVsTotalLabel => 'Físicas nas vitrines';
+
+  @override
+  String get missingCostLabel => 'Custo faltantes';
+
+  @override
+  String get manaCurveTitle => 'Curva de custo';
+
+  @override
+  String get addCardToDeckHint => 'Adicionar carta ao deck…';
+
+  @override
+  String addedToDeckMessage(String name, String deck) {
+    return '«$name» adicionada a «$deck».';
+  }
+
+  @override
+  String get selectDeckTitle => 'Escolher deck de destino';
+
+  @override
+  String get noDecksYetMessage =>
+      'Nenhum deck criado ainda. Crie o primeiro para vincular suas cartas.';
+
+  @override
+  String get scannerZoneTitleLabel => 'NOME';
+
+  @override
+  String get scannerZoneSetLabel => 'SET · N.º';
+
+  @override
+  String get scannerStreamActiveBadge => '⚡ STREAM ÓPTICO AO VIVO';
+
+  @override
+  String scannerVariantSelectorLabel(int count) {
+    return 'Edições detectadas ($count)';
+  }
+
+  @override
+  String scannerCenteringLabel(String ratio, String grade) {
+    return 'Pré-Grading · Centralização $ratio ($grade)';
+  }
+
+  @override
+  String get proofSnapshotSavedBadge => '📸 Prova física capturada';
+
+  @override
+  String get viewOfficialArtToggle => 'Arte Oficial';
+
+  @override
+  String get viewProofPhotoToggle => 'Foto Escaneada';
+
+  @override
+  String get trashBinTitle => 'Lixeira de Exclusão';
+
+  @override
+  String get trashBinSubtitle =>
+      'Itens excluídos ficam salvos aqui com segurança. Restaure-os ao bolso ou esvazie definitivamente.';
+
+  @override
+  String get trashBinEmptyMessage => 'A lixeira está vazia.';
+
+  @override
+  String trashBinCountBadge(int count) {
+    return 'Lixeira ($count)';
+  }
+
+  @override
+  String get moveToTrashButton => 'Enviar para a lixeira';
+
+  @override
+  String moveToTrashConfirm(String name) {
+    return '«$name» sairá do bolso e irá para a Lixeira (você pode restaurar quando quiser).';
+  }
+
+  @override
+  String movedToTrashMessage(String name) {
+    return '«$name» enviada para a lixeira.';
+  }
+
+  @override
+  String get undoButton => 'Desfazer';
+
+  @override
+  String get restoreFromTrashButton => 'Restaurar';
+
+  @override
+  String restoredFromTrashMessage(String name, int pocket) {
+    return '«$name» restaurada ao bolso #$pocket.';
+  }
+
+  @override
+  String get permanentDeleteButton => 'Excluir definitivo';
+
+  @override
+  String get emptyTrashButton => 'Esvaziar lixeira';
+
+  @override
+  String emptyTrashConfirm(int count) {
+    return 'Excluir definitivamente todos os $count itens da lixeira? Esta ação não pode ser desfeita.';
+  }
+
+  @override
+  String get trashDropZoneHint => '🗑️ Solte aqui para enviar à Lixeira';
+
+  @override
+  String trashOriginLabel(String binder, int pocket) {
+    return 'De: $binder · Bolso #$pocket';
+  }
+
+  @override
+  String get deckGameTypeLabel => 'Jogo do deck';
+
+  @override
+  String get deleteDeckButton => 'Excluir deck';
+
+  @override
+  String get deckFilterAll => 'Todas';
+
+  @override
+  String get deckFilterOwned => '✓ Nas Vitrines';
+
+  @override
+  String get deckFilterMissing => '✗ Faltando';
+
+  @override
+  String get pullListButton => 'Lista de Retirada';
+
+  @override
+  String get pullListTitle => 'Localizador Físico · Lista de Retirada';
+
+  @override
+  String get pullListSubtitle =>
+      'Localização exata de cada carta física que você deve retirar das vitrines:';
+
+  @override
+  String get pullListEmpty =>
+      'Nenhuma carta física deste deck foi localizada nas suas vitrines ainda.';
+
+  @override
+  String get openInShowcaseTooltip => 'Abrir peça na vitrine';
+
+  @override
+  String get editProfileButton => 'Editar perfil';
+
+  @override
+  String get displayNameLabel => 'Nome de exibição';
+
+  @override
+  String get tradeContactLabel => 'Contato Tradelist (ex. @usuario / Discord)';
+
+  @override
+  String get tradeContactHint =>
+      'Visível nas suas vitrines públicas para combinar trocas ou vendas';
+
+  @override
+  String contactSellerButton(String handle) {
+    return 'Contatar ($handle)';
+  }
+
+  @override
+  String contactCopiedMessage(String handle) {
+    return 'Contato «$handle» copiado.';
+  }
+
+  @override
+  String get costBasisLabel => 'Custo de aquisição';
 }

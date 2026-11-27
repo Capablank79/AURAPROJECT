@@ -13,6 +13,7 @@ import '../../../core/widgets/aura_bottom_bar.dart';
 import '../../../core/widgets/aura_sigil_logo.dart';
 import '../../../core/widgets/collection_category_selector.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../catalog/presentation/decks_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../data/repositories/binder_repository.dart';
 import '../providers/binder_providers.dart';
@@ -68,6 +69,7 @@ class _BinderHomeScreenState extends ConsumerState<BinderHomeScreen> {
             AuraNavTab.search => _CollectionQuickSearchView(
               bindersAsync: binders,
             ),
+            AuraNavTab.decks => const DecksScreen(),
             AuraNavTab.settings => const ProfileScreen(),
           },
         ),
@@ -650,6 +652,7 @@ class _BinderShowcase extends ConsumerWidget {
                             runSpacing: 4,
                             children: [
                               _SmallBadge(label: collectionLabel),
+                              _SmallBadge(label: binder.gridFormat),
                               _SmallBadge(
                                 label: binder.isPublic
                                     ? l10n.visibilityPublic
@@ -673,7 +676,12 @@ class _BinderShowcase extends ConsumerWidget {
                   loading: () => const LinearProgressIndicator(),
                   error: (_, _) => Text(l10n.genericError),
                   data: (binderItems) {
-                    final value = binderItems.fold<double>(
+                    final verifiedItems = binderItems
+                        .where((i) => i.isPhysicallyVerified)
+                        .toList();
+                    final unverifiedCount =
+                        binderItems.length - verifiedItems.length;
+                    final value = verifiedItems.fold<double>(
                       0,
                       (sum, item) => sum + (item.estimatedPrice ?? 0),
                     );
@@ -684,6 +692,7 @@ class _BinderShowcase extends ConsumerWidget {
                             1.0,
                           );
                     return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
@@ -712,6 +721,21 @@ class _BinderShowcase extends ConsumerWidget {
                             ),
                           ],
                         ),
+                        if (binderItems.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            unverifiedCount == 0
+                                ? l10n.trustBadgeFullPhysical
+                                : l10n.trustBadgeHasApi(unverifiedCount),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: unverifiedCount == 0
+                                  ? AuraColors.emeraldAura
+                                  : AuraColors.psychicMagenta,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 10),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(99),
@@ -719,8 +743,10 @@ class _BinderShowcase extends ConsumerWidget {
                             minHeight: 4,
                             value: progress,
                             backgroundColor: AuraColors.surfaceRaised,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              AuraColors.champagneGold,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              unverifiedCount == 0
+                                  ? AuraColors.champagneGold
+                                  : AuraColors.psychicMagenta,
                             ),
                           ),
                         ),
