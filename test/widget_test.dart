@@ -607,7 +607,7 @@ void main() {
       // Buy extra binder credit
       final buyExtraFinder = find.text('Adquirir Carpeta Extra (360 espacios)');
       await tester.scrollUntilVisible(buyExtraFinder, 250);
-      await tester.drag(find.byType(ListView).first, const Offset(0, -250));
+      await tester.ensureVisible(buyExtraFinder);
       await tester.pumpAndSettle();
       await tester.tap(buyExtraFinder);
       await tester.pumpAndSettle();

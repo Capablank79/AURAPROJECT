@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,11 +15,12 @@ import '../../../core/widgets/aura_bottom_bar.dart';
 import '../../../core/widgets/aura_sigil_logo.dart';
 import '../../../core/widgets/collection_category_selector.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../catalog/data/catalog_repository.dart';
 import '../../catalog/presentation/decks_screen.dart';
+import '../../catalog/providers/catalog_providers.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../data/repositories/binder_repository.dart';
 import '../providers/binder_providers.dart';
-import 'widgets/language_menu.dart';
 
 class BinderHomeScreen extends ConsumerStatefulWidget {
   const BinderHomeScreen({super.key});
@@ -32,6 +35,8 @@ class _BinderHomeScreenState extends ConsumerState<BinderHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final binders = ref.watch(bindersProvider);
+    final valuation = ref.watch(portfolioValuationProvider).valueOrNull;
+    final formatUsd = ref.watch(formatUsdProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -43,12 +48,58 @@ class _BinderHomeScreenState extends ConsumerState<BinderHomeScreen> {
             AuraWordmark(fontSize: 21),
           ],
         ),
-        actions: const [LanguageMenu()],
+        actions: [
+          if (valuation != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: ActionChip(
+                avatar: const Icon(
+                  Icons.diamond_outlined,
+                  size: 16,
+                  color: AuraColors.champagneGold,
+                ),
+                label: Text(
+                  formatUsd(valuation.totalValue),
+                  style: const TextStyle(
+                    color: AuraColors.champagneGold,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+                backgroundColor: AuraColors.smokedCharcoal,
+                side: BorderSide(
+                  color: AuraColors.champagneGold.withValues(alpha: 0.35),
+                ),
+                onPressed: () =>
+                    setState(() => _activeTab = AuraNavTab.settings),
+              ),
+            ),
+          IconButton(
+            tooltip: 'MagicFrame',
+            icon: const Icon(
+              Icons.qr_code_scanner,
+              color: AuraColors.champagneGold,
+            ),
+            onPressed: () => _openQuickScan(context, ref),
+          ),
+        ],
       ),
       bottomNavigationBar: AuraBottomBar(
         activeTab: _activeTab,
         onSelected: (tab) => setState(() => _activeTab = tab),
       ),
+      floatingActionButton: _activeTab == AuraNavTab.showcases
+          ? FloatingActionButton.extended(
+              onPressed: () => _openQuickScan(context, ref),
+              backgroundColor: AuraColors.champagneGold,
+              foregroundColor: AuraColors.obsidianVoid,
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text(
+                'MagicFrame',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            )
+          : null,
       body: AuraBackdrop(
         child: SafeArea(
           child: switch (_activeTab) {
@@ -75,6 +126,74 @@ class _BinderHomeScreenState extends ConsumerState<BinderHomeScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openQuickScan(BuildContext context, WidgetRef ref) async {
+    final binders = ref.read(bindersProvider).valueOrNull ?? const [];
+    if (binders.isEmpty) {
+      await _showCreateBinder(context, ref);
+      return;
+    }
+    BinderModel? target = binders.length == 1 ? binders.first : null;
+    target ??= await showModalBottomSheet<BinderModel>(
+        context: context,
+        backgroundColor: AuraColors.obsidianVoid,
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          side: BorderSide(
+            color: AuraColors.champagneGold.withValues(alpha: 0.25),
+          ),
+        ),
+        builder: (sheetCtx) => SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  AppLocalizations.of(sheetCtx).yourCollection,
+                  style: Theme.of(sheetCtx).textTheme.titleMedium?.copyWith(
+                    color: AuraColors.champagneGold,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (final b in binders)
+                  ListTile(
+                    leading: Icon(
+                      CollectionRegistry.byCode(b.collectionCode).icon,
+                      color: AuraColors.champagneGold,
+                    ),
+                    title: Text(b.title),
+                    subtitle: Text(
+                      CollectionL10n.binderCollectionLabel(
+                        AppLocalizations.of(sheetCtx),
+                        b,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.pop(sheetCtx, b),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    if (target == null || !context.mounted) {
+      return;
+    }
+    final items = await ref.read(binderItemsProvider(target.id).future);
+    final occupied = items.map((e) => e.positionIndex).toSet();
+    var nextPos = 0;
+    while (occupied.contains(nextPos) && nextPos < target.maxSlots) {
+      nextPos++;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    context.push('/binder/${target.id}/catalog?position=$nextPos');
   }
 
   Future<void> _showCreateBinder(BuildContext context, WidgetRef ref) async {
@@ -144,7 +263,7 @@ class _BinderHomeScreenState extends ConsumerState<BinderHomeScreen> {
   }
 }
 
-class _ShowcasesListView extends StatelessWidget {
+class _ShowcasesListView extends ConsumerWidget {
   const _ShowcasesListView({
     required this.binders,
     required this.onCreateBinder,
@@ -156,23 +275,44 @@ class _ShowcasesListView extends StatelessWidget {
   final VoidCallback onShowProInfo;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+    final valuation = ref.watch(portfolioValuationProvider).valueOrNull;
+    final formatUsd = ref.watch(formatUsdProvider);
+
+    ItemModel? mvpItem;
+    for (final b in binders) {
+      final items = ref.watch(binderItemsProvider(b.id)).valueOrNull ?? const [];
+      for (final it in items) {
+        if (it.isPhysicallyVerified &&
+            (it.estimatedPrice ?? 0) > (mvpItem?.estimatedPrice ?? 0)) {
+          mvpItem = it;
+        }
+      }
+    }
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 92),
       children: [
+        if (valuation != null) ...[
+          _PortfolioTickerCard(
+            totalValue: formatUsd(valuation.totalValue),
+            totalItems: valuation.totalItems,
+            slabsCount: valuation.slabsCount,
+            mvpName: mvpItem?.name,
+            mvpValue: mvpItem?.estimatedPrice != null
+                ? formatUsd(mvpItem!.estimatedPrice!)
+                : null,
+          ),
+          const SizedBox(height: 10),
+        ],
         Text(
           l10n.yourCollection,
           style: Theme.of(
             context,
-          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
-        const SizedBox(height: 6),
-        Text(
-          l10n.collectionSubtitle,
-          style: const TextStyle(color: AuraColors.mutedText, height: 1.4),
-        ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 10),
         for (final binder in binders) _BinderShowcase(binder: binder),
         const SizedBox(height: 6),
         OutlinedButton.icon(
@@ -183,6 +323,89 @@ class _ShowcasesListView extends StatelessWidget {
         const SizedBox(height: 16),
         _AuraProTeaserCard(onTap: onShowProInfo),
       ],
+    );
+  }
+}
+
+class _PortfolioTickerCard extends StatelessWidget {
+  const _PortfolioTickerCard({
+    required this.totalValue,
+    required this.totalItems,
+    required this.slabsCount,
+    this.mvpName,
+    this.mvpValue,
+  });
+
+  final String totalValue;
+  final int totalItems;
+  final int slabsCount;
+  final String? mvpName;
+  final String? mvpValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1D172B), AuraColors.smokedCharcoal],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AuraColors.champagneGold.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.trending_up,
+            color: AuraColors.emeraldAura,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      totalValue,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AuraColors.champagneGold,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '· $totalItems ${l10n.totalPiecesLabel}${slabsCount > 0 ? ' · $slabsCount Slabs' : ''}',
+                      style: const TextStyle(
+                        color: AuraColors.silverMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                if (mvpName != null)
+                  Text(
+                    'MVP: $mvpName${mvpValue != null ? ' ($mvpValue)' : ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AuraColors.creamText,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -450,11 +673,58 @@ class _CollectionQuickSearchView extends ConsumerStatefulWidget {
 class _CollectionQuickSearchViewState
     extends ConsumerState<_CollectionQuickSearchView> {
   final _queryController = TextEditingController();
+  bool _onlineMode = false;
+  CatalogProvider _onlineProvider = CatalogProvider.scryfall;
+  Timer? _debounce;
+  bool _searchingOnline = false;
+  List<CatalogResult> _onlineResults = const [];
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _queryController.dispose();
     super.dispose();
+  }
+
+  void _onQueryChanged(String value) {
+    setState(() {});
+    if (!_onlineMode) {
+      return;
+    }
+    _debounce?.cancel();
+    final trimmed = value.trim();
+    if (trimmed.length < 2) {
+      setState(() {
+        _onlineResults = const [];
+        _searchingOnline = false;
+      });
+      return;
+    }
+    setState(() => _searchingOnline = true);
+    _debounce = Timer(const Duration(milliseconds: 380), () async {
+      try {
+        final results = await ref
+            .read(catalogRepositoryProvider)
+            .search(
+              provider: _onlineProvider,
+              query: trimmed,
+              languageCode: ref.read(appLocaleProvider).languageCode,
+            );
+        if (mounted) {
+          setState(() {
+            _onlineResults = results;
+            _searchingOnline = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _onlineResults = const [];
+            _searchingOnline = false;
+          });
+        }
+      }
+    });
   }
 
   @override
@@ -471,20 +741,208 @@ class _CollectionQuickSearchViewState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              SegmentedButton<bool>(
+                segments: [
+                  ButtonSegment(
+                    value: false,
+                    icon: const Icon(Icons.style_outlined, size: 16),
+                    label: Text(l10n.navShowcases),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    icon: const Icon(Icons.public, size: 16),
+                    label: Text(l10n.modeSearchLabel),
+                  ),
+                ],
+                selected: {_onlineMode},
+                onSelectionChanged: (selection) {
+                  setState(() => _onlineMode = selection.first);
+                  if (_onlineMode && _queryController.text.trim().length >= 2) {
+                    _onQueryChanged(_queryController.text);
+                  }
+                },
+              ),
+              if (_onlineMode) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Magic'),
+                      selected: _onlineProvider == CatalogProvider.scryfall,
+                      onSelected: (_) {
+                        setState(
+                          () => _onlineProvider = CatalogProvider.scryfall,
+                        );
+                        _onQueryChanged(_queryController.text);
+                      },
+                    ),
+                    ChoiceChip(
+                      label: const Text('Pokémon'),
+                      selected: _onlineProvider == CatalogProvider.tcgdex,
+                      onSelected: (_) {
+                        setState(() => _onlineProvider = CatalogProvider.tcgdex);
+                        _onQueryChanged(_queryController.text);
+                      },
+                    ),
+                    ChoiceChip(
+                      label: const Text('Yu-Gi-Oh!'),
+                      selected: _onlineProvider == CatalogProvider.ygoprodeck,
+                      onSelected: (_) {
+                        setState(
+                          () => _onlineProvider = CatalogProvider.ygoprodeck,
+                        );
+                        _onQueryChanged(_queryController.text);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 12),
               TextField(
                 controller: _queryController,
-                onChanged: (_) => setState(() {}),
+                onChanged: _onQueryChanged,
                 decoration: InputDecoration(
-                  labelText: l10n.searchMyShowcasesLabel,
-                  hintText: l10n.searchMyShowcasesHint,
+                  labelText: _onlineMode
+                      ? l10n.modeSearchLabel
+                      : l10n.searchMyShowcasesLabel,
+                  hintText: _onlineMode
+                      ? 'Sol Ring, Pikachu, Blue-Eyes...'
+                      : l10n.searchMyShowcasesHint,
                   prefixIcon: const Icon(Icons.search),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               Expanded(
-                child: _SearchMatchesList(binders: binders, query: query),
+                child: _onlineMode
+                    ? _OnlineSearchResultsList(
+                        loading: _searchingOnline,
+                        results: _onlineResults,
+                        binders: binders,
+                        query: query,
+                      )
+                    : _SearchMatchesList(binders: binders, query: query),
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _OnlineSearchResultsList extends ConsumerWidget {
+  const _OnlineSearchResultsList({
+    required this.loading,
+    required this.results,
+    required this.binders,
+    required this.query,
+  });
+
+  final bool loading;
+  final List<CatalogResult> results;
+  final List<BinderModel> binders;
+  final String query;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final formatUsd = ref.watch(formatUsdProvider);
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (query.length < 2) {
+      return Center(
+        child: Text(
+          l10n.searchMyShowcasesHint,
+          style: const TextStyle(color: AuraColors.mutedText),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+    if (results.isEmpty) {
+      return Center(
+        child: Text(
+          l10n.noStoredItemsFound,
+          style: const TextStyle(color: AuraColors.mutedText),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+    return ListView.separated(
+      itemCount: results.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final card = results[index];
+        return Card(
+          child: ListTile(
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                width: 40,
+                height: 54,
+                child: card.imageUrl.isEmpty
+                    ? AuraCardCrestPlaceholder(name: card.name, compact: true)
+                    : Image.network(
+                        card.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => AuraCardCrestPlaceholder(
+                          name: card.name,
+                          compact: true,
+                        ),
+                      ),
+              ),
+            ),
+            title: Text(
+              card.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              [
+                if ((card.metadata['expansion'] ?? card.metadata['set_name']) !=
+                    null)
+                  (card.metadata['expansion'] ?? card.metadata['set_name'])
+                      .toString(),
+                if (card.estimatedPrice != null)
+                  formatUsd(card.estimatedPrice!),
+              ].join(' · '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: IconButton(
+              tooltip: l10n.addItemButton,
+              icon: const Icon(
+                Icons.add_circle_outline,
+                color: AuraColors.champagneGold,
+              ),
+              onPressed: binders.isEmpty
+                  ? null
+                  : () async {
+                      final matching = binders
+                          .where((b) => b.collectionCode == card.collectionCode)
+                          .toList();
+                      final target = matching.isNotEmpty
+                          ? matching.first
+                          : binders.first;
+                      final items = await ref.read(
+                        binderItemsProvider(target.id).future,
+                      );
+                      final occupied = items
+                          .map((e) => e.positionIndex)
+                          .toSet();
+                      var nextPos = 0;
+                      while (occupied.contains(nextPos) &&
+                          nextPos < target.maxSlots) {
+                        nextPos++;
+                      }
+                      if (context.mounted) {
+                        context.push(
+                          '/binder/${target.id}/catalog?position=$nextPos',
+                        );
+                      }
+                    },
+            ),
           ),
         );
       },
@@ -697,10 +1155,7 @@ class _BinderShowcase extends ConsumerWidget {
                         Row(
                           children: [
                             Text(
-                              l10n.occupiedCount(
-                                binderItems.length,
-                                binder.maxSlots,
-                              ),
+                              '${l10n.occupiedCount(binderItems.length, binder.maxSlots)} (${(progress * 100).round()}%)',
                               style: const TextStyle(
                                 color: AuraColors.mutedText,
                               ),

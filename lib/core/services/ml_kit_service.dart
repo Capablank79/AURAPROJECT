@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 
+import '../utils/tcg_text_translator.dart';
+
 class CardScanMatch {
   const CardScanMatch({
     required this.title,
@@ -254,37 +256,78 @@ class DeviceMlKitService implements MlKitService {
     String targetLangCode,
   ) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || !isSupportedOnDevice) {
+    if (trimmed.isEmpty) {
       return text;
     }
     final targetLanguage = _mapLanguage(targetLangCode);
     if (targetLanguage == TranslateLanguage.english) {
       return text;
     }
+    if (!isSupportedOnDevice) {
+      return TcgTextTranslator.fallbackTranslate(trimmed, targetLangCode) ??
+          text;
+    }
+
     OnDeviceTranslator? translator;
     try {
       final manager = OnDeviceTranslatorModelManager();
-      final downloaded = await manager.isModelDownloaded(
-        targetLanguage.bcpCode,
-      );
-      if (!downloaded) {
-        final ok = await manager.downloadModel(targetLanguage.bcpCode);
-        if (!ok) {
-          return text;
+      for (final lang in [TranslateLanguage.english, targetLanguage]) {
+        final downloaded = await manager.isModelDownloaded(lang.bcpCode);
+        if (!downloaded) {
+          final ok = await manager.downloadModel(lang.bcpCode);
+          if (!ok) {
+            return TcgTextTranslator.fallbackTranslate(
+                  trimmed,
+                  targetLangCode,
+                ) ??
+                text;
+          }
         }
       }
+
       translator = OnDeviceTranslator(
         sourceLanguage: TranslateLanguage.english,
         targetLanguage: targetLanguage,
       );
-      final translated = await translator.translateText(trimmed);
-      return translated.trim().isEmpty ? text : translated;
+
+      final lines = trimmed.split('\n');
+      final translatedLines = <String>[];
+      for (final line in lines) {
+        final lineTrimmed = line.trim();
+        if (lineTrimmed.isEmpty) {
+          translatedLines.add('');
+          continue;
+        }
+        final masked = TcgTextTranslator.maskTokens(lineTrimmed);
+        final rawTranslated = await translator.translateText(masked.masked);
+        final unmasked = TcgTextTranslator.unmaskTokens(
+          rawTranslated,
+          masked.tokens,
+        );
+        final normalized = TcgTextTranslator.postProcess(
+          unmasked,
+          targetLangCode,
+        );
+        translatedLines.add(
+          normalized.trim().isEmpty ? lineTrimmed : normalized.trim(),
+        );
+      }
+
+      final joined = translatedLines.join('\n').trim();
+      if (joined.isEmpty) {
+        return TcgTextTranslator.fallbackTranslate(trimmed, targetLangCode) ??
+            text;
+      }
+      return joined;
     } on MissingPluginException {
-      return text;
+      return TcgTextTranslator.fallbackTranslate(trimmed, targetLangCode) ??
+          text;
     } on PlatformException {
-      return text;
+      return TcgTextTranslator.fallbackTranslate(trimmed, targetLangCode) ??
+          text;
     } catch (_) {
-      return text;
+      return TcgTextTranslator.fallbackTranslate(trimmed, targetLangCode) ??
+          text;
     } finally {
       await translator?.close();
     }

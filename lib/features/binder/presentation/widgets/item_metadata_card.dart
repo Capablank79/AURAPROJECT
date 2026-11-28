@@ -22,6 +22,7 @@ class ItemMetadataCard extends ConsumerStatefulWidget {
 
 class _ItemMetadataCardState extends ConsumerState<ItemMetadataCard> {
   String? _translatedRules;
+  String? _translatedLang;
   bool _showTranslated = false;
   bool _translating = false;
 
@@ -162,26 +163,39 @@ class _ItemMetadataCardState extends ConsumerState<ItemMetadataCard> {
   }
 
   Future<void> _toggleTranslate(String originalText) async {
-    if (_showTranslated) {
+    final langCode = ref.read(appLocaleProvider).languageCode;
+    if (_showTranslated && _translatedLang == langCode) {
       setState(() => _showTranslated = false);
       return;
     }
-    if (_translatedRules != null) {
+    if (_translatedRules != null && _translatedLang == langCode) {
       setState(() => _showTranslated = true);
       return;
     }
     setState(() => _translating = true);
     try {
-      final langCode = ref.read(appLocaleProvider).languageCode;
       final translated = await ref
           .read(mlKitServiceProvider)
           .translateTextOffline(originalText, langCode);
-      if (mounted) {
-        setState(() {
-          _translatedRules = translated;
-          _showTranslated = true;
-        });
+      if (!mounted) {
+        return;
       }
+      if (translated.trim() == originalText.trim() && langCode != 'en') {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).genericError),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        return;
+      }
+      setState(() {
+        _translatedRules = translated;
+        _translatedLang = langCode;
+        _showTranslated = true;
+      });
     } finally {
       if (mounted) {
         setState(() => _translating = false);

@@ -90,6 +90,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             onBuyExtraBinder: () => _purchase(BillingProductId.standardBinder),
             onBuyPro: () => _purchase(BillingProductId.auraProAnnual),
           ),
+          const SizedBox(height: 8),
+          _CollectorBadgesCard(
+            valuation: valuationAsync.valueOrNull,
+            binders: bindersAsync.valueOrNull ?? const <BinderModel>[],
+          ),
           const SizedBox(height: 12),
           SwitchListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 4),
@@ -515,6 +520,93 @@ class _SpaceStoreCard extends StatelessWidget {
                     ? l10n.proPlanLabel
                     : l10n.upgradeToProAnnualButton,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectorBadgesCard extends ConsumerWidget {
+  const _CollectorBadgesCard({
+    required this.valuation,
+    required this.binders,
+  });
+
+  final PortfolioValuation? valuation;
+  final List<BinderModel> binders;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var hasFoil = false;
+    var hasFullPage = false;
+    for (final b in binders) {
+      final items = ref.watch(binderItemsProvider(b.id)).valueOrNull ?? const [];
+      if (items.length >= 9) {
+        hasFullPage = true;
+      }
+      if (items.any((i) => i.isFoil)) {
+        hasFoil = true;
+      }
+    }
+    final hasSlab = (valuation?.slabsCount ?? 0) > 0;
+    final hasTrade = (valuation?.tradeCount ?? 0) > 0;
+
+    final badges = <(String, IconData, bool)>[
+      ('Foil Hunter', Icons.auto_awesome, hasFoil),
+      ('3x3 Page', Icons.grid_view_rounded, hasFullPage),
+      ('Slab Collector', Icons.verified, hasSlab),
+      ('Trade Ready', Icons.swap_horiz, hasTrade),
+    ];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Aura Badges',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: AuraColors.champagneGold,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final (label, icon, unlocked) in badges)
+                  Chip(
+                    avatar: Icon(
+                      icon,
+                      size: 16,
+                      color: unlocked
+                          ? AuraColors.solarGold
+                          : AuraColors.mutedText,
+                    ),
+                    label: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: unlocked
+                            ? AuraColors.creamText
+                            : AuraColors.mutedText,
+                      ),
+                    ),
+                    backgroundColor: unlocked
+                        ? AuraColors.solarGold.withValues(alpha: 0.14)
+                        : AuraColors.surfaceRaised,
+                    side: BorderSide(
+                      color: unlocked
+                          ? AuraColors.solarGold.withValues(alpha: 0.45)
+                          : AuraColors.surfaceRaised,
+                    ),
+                  ),
+              ],
             ),
           ],
         ),

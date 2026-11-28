@@ -245,6 +245,14 @@ class _TrashedRecordTile extends ConsumerWidget {
             ),
             FilledButton.tonalIcon(
               onPressed: () => _restore(context, ref),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, 36),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               icon: const Icon(Icons.restore, size: 16),
               label: Text(l10n.restoreFromTrashButton),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/aura_colors.dart';
 import '../../../core/widgets/aura_sigil_logo.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -82,6 +83,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       icon: const Icon(Icons.mail_outline, size: 18),
                       label: Text(l10n.signInWithEmail),
                     ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: _loading ? null : _enterDemoShowcase,
+                      icon: const Icon(
+                        Icons.auto_awesome,
+                        size: 18,
+                        color: AuraColors.champagneGold,
+                      ),
+                      label: Text(
+                        l10n.publicPreviewButton,
+                        style: const TextStyle(color: AuraColors.champagneGold),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -107,6 +121,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     setState(() => _loading = true);
     try {
       await ref.read(authStateProvider.notifier).signInWithApple();
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _enterDemoShowcase() async {
+    setState(() => _loading = true);
+    try {
+      await ref
+          .read(sharedPreferencesProvider)
+          .setBool(onboardingCompleteKey, true);
+      await ref.read(authStateProvider.notifier).signInWithGoogle();
     } finally {
       if (mounted) {
         setState(() => _loading = false);

@@ -6,9 +6,12 @@ import 'package:aura_deck/core/models/item_model.dart';
 import 'package:aura_deck/core/providers/app_providers.dart';
 import 'package:aura_deck/core/services/card_text_extractor_service.dart';
 import 'package:aura_deck/core/services/ml_kit_service.dart';
+import 'package:aura_deck/core/theme/aura_theme.dart';
 import 'package:aura_deck/core/utils/card_art_hasher.dart';
+import 'package:aura_deck/core/utils/tcg_text_translator.dart';
 import 'package:aura_deck/features/binder/data/mock_binder_repository.dart';
 import 'package:aura_deck/features/binder/presentation/widgets/holo_foil_card_widget.dart';
+import 'package:aura_deck/features/binder/presentation/widgets/trash_bin_sheet.dart';
 import 'package:aura_deck/features/binder/providers/binder_providers.dart';
 import 'package:aura_deck/features/catalog/data/catalog_repository.dart';
 import 'package:aura_deck/features/catalog/presentation/catalog_screen.dart';
@@ -479,6 +482,70 @@ void main() {
     await repo.moveItemToTrash('magic-sol-ring');
     await repo.emptyTrash();
     expect(await repo.getTrashedItems(), isEmpty);
+  });
+
+  testWidgets('showTrashBinSheet renders trashed items with AuraTheme without layout error', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'preferred_language': 'es'});
+    final prefs = await SharedPreferences.getInstance();
+    final repo = MockBinderRepository.demo();
+    await repo.moveItemToTrash('magic-sol-ring');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          binderRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: MaterialApp(
+          theme: AuraTheme.dark,
+          locale: const Locale('es'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => showTrashBinSheet(context),
+                child: const Text('Open Trash'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open Trash'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sol Ring'), findsOneWidget);
+    expect(find.text('Restaurar'), findsOneWidget);
+  });
+
+  test('TcgTextTranslator masks symbols, normalizes TCG terms, and has offline fallback', () {
+    final masked = TcgTextTranslator.maskTokens('{T}: Add {C}{C}.');
+    expect(masked.tokens, ['{T}', '{C}', '{C}']);
+    expect(masked.masked, '<<0>>: Add <<1>><<2>>.');
+    expect(
+      TcgTextTranslator.unmaskTokens('<< 0 >>: Agrega <<1>><<2>>.', masked.tokens),
+      '{T}: Agrega {C}{C}.',
+    );
+
+    expect(
+      TcgTextTranslator.postProcess('Busca en tu librería y deshacer.', 'es'),
+      'Busca en tu biblioteca y enderezar.',
+    );
+
+    expect(
+      TcgTextTranslator.fallbackTranslate('{T}: Add {C}{C}.\nDraw two cards.', 'es'),
+      '{T}: Agrega {C}{C}.\nRoba dos cartas.',
+    );
   });
 
   testWidgets('DecksScreen opens Pull List physical locator with exact binder slot', (

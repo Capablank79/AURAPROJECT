@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/collections/collection_l10n.dart';
 import '../../../core/models/deck_model.dart';
@@ -100,7 +101,7 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              if (selected != null)
+              if (selected != null) ...[
                 DeckDetailCard(
                   key: ValueKey(selected.id),
                   deck: selected,
@@ -116,6 +117,13 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                     }
                   },
                 ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => _showWishlistSheet(context, selected, match),
+                  icon: const Icon(Icons.playlist_add_check, size: 18),
+                  label: Text('${l10n.shareBinder} · Wishlist'),
+                ),
+              ],
             ],
           ],
         );
@@ -289,6 +297,101 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                       },
                       icon: const Icon(Icons.check, size: 18),
                       label: Text(l10n.applyDecklistButton),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showWishlistSheet(
+    BuildContext context,
+    DeckModel deck,
+    DeckInventoryMatch match,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final missingLines = <String>[];
+    for (final entry in deck.entries) {
+      final owned = match.locationsByCardName[entry.name.toLowerCase()]
+              ?.length ??
+          0;
+      final missing = entry.quantity - owned;
+      if (missing > 0) {
+        missingLines.add('${missing}x ${entry.name}');
+      }
+    }
+    final wishlistText = missingLines.isEmpty
+        ? '100% ${deck.title}'
+        : 'Wishlist · ${deck.title}\n${missingLines.join('\n')}';
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AuraColors.obsidianVoid,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(
+          color: AuraColors.champagneGold.withValues(alpha: 0.25),
+        ),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Wishlist · ${deck.title}',
+                style: Theme.of(sheetCtx).textTheme.titleMedium?.copyWith(
+                  color: AuraColors.champagneGold,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (missingLines.isEmpty)
+                Text(
+                  '100% ${deck.title}',
+                  style: const TextStyle(color: AuraColors.emeraldAura),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      missingLines.join('\n'),
+                      style: const TextStyle(height: 1.5),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: wishlistText),
+                        );
+                        if (sheetCtx.mounted) {
+                          Navigator.pop(sheetCtx);
+                        }
+                      },
+                      icon: const Icon(Icons.copy, size: 18),
+                      label: Text(l10n.copyDecklistButton),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () =>
+                          SharePlus.instance.share(ShareParams(text: wishlistText)),
+                      icon: const Icon(Icons.ios_share, size: 18),
+                      label: Text(l10n.shareBinder),
                     ),
                   ),
                 ],

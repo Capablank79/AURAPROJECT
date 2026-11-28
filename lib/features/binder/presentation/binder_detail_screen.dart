@@ -14,9 +14,7 @@ import '../../catalog/providers/deck_providers.dart';
 import '../providers/binder_providers.dart';
 import 'widgets/binder_manage_sheet.dart';
 import 'widgets/binder_pocket_grid.dart';
-import 'widgets/language_menu.dart';
 import 'widgets/qr_poster_sheet.dart';
-import 'widgets/trash_bin_sheet.dart';
 
 class BinderDetailScreen extends ConsumerStatefulWidget {
   const BinderDetailScreen({
@@ -38,6 +36,7 @@ class _BinderDetailScreenState extends ConsumerState<BinderDetailScreen> {
   late final PageController _pageController;
   int _page = 0;
   String _publicFilter = 'all';
+  bool _showcaseMode = false;
 
   @override
   void initState() {
@@ -82,21 +81,13 @@ class _BinderDetailScreenState extends ConsumerState<BinderDetailScreen> {
               icon: const Icon(Icons.qr_code_2),
             ),
           if (!widget.publicView) ...[
-            Consumer(
-              builder: (context, ref, _) {
-                final count =
-                    ref.watch(trashedItemsProvider).valueOrNull?.length ?? 0;
-                return IconButton(
-                  tooltip: l10n.trashBinTitle,
-                  onPressed: () => showTrashBinSheet(context),
-                  icon: Badge(
-                    isLabelVisible: count > 0,
-                    label: Text('$count'),
-                    backgroundColor: AuraColors.psychicMagenta,
-                    child: const Icon(Icons.delete_outline),
-                  ),
-                );
-              },
+            IconButton(
+              tooltip: l10n.publicPreviewButton,
+              onPressed: () => setState(() => _showcaseMode = !_showcaseMode),
+              icon: Icon(
+                _showcaseMode ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+                color: _showcaseMode ? AuraColors.solarGold : null,
+              ),
             ),
             if (binderAsync.value?.isPublic == true)
               IconButton(
@@ -142,7 +133,6 @@ class _BinderDetailScreenState extends ConsumerState<BinderDetailScreen> {
                     },
               icon: const Icon(Icons.tune_outlined),
             ),
-            const LanguageMenu(),
           ],
         ],
       ),
@@ -159,13 +149,16 @@ class _BinderDetailScreenState extends ConsumerState<BinderDetailScreen> {
               }
               return _BinderPages(
                 binder: binder,
-                publicView: widget.publicView,
+                publicView: widget.publicView || _showcaseMode,
                 publicBasePath: widget.publicBasePath,
                 page: _page,
                 publicFilter: _publicFilter,
                 onFilterChanged: (f) => setState(() => _publicFilter = f),
                 controller: _pageController,
-                onPageChanged: (page) => setState(() => _page = page),
+                onPageChanged: (page) {
+                  HapticFeedback.lightImpact();
+                  setState(() => _page = page);
+                },
                 onJump: () => _jumpToPage(binder),
               );
             },
@@ -491,27 +484,35 @@ class _BinderPages extends ConsumerWidget {
                           ref.invalidate(portfolioValuationProvider);
                           ref.invalidate(deckInventoryMatchProvider);
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  l10n.movedToTrashMessage(item.name),
+                            ScaffoldMessenger.of(context)
+                              ..clearSnackBars()
+                              ..showSnackBar(
+                                SnackBar(
+                                  duration: const Duration(seconds: 4),
+                                  persist: false,
+                                  content: Text(
+                                    l10n.movedToTrashMessage(item.name),
+                                  ),
+                                  action: SnackBarAction(
+                                    label: l10n.undoButton,
+                                    onPressed: () async {
+                                      await ref
+                                          .read(binderRepositoryProvider)
+                                          .restoreItemFromTrash(item.id);
+                                      ref.invalidate(
+                                        binderItemsProvider(binder.id),
+                                      );
+                                      ref.invalidate(trashedItemsProvider);
+                                      ref.invalidate(
+                                        portfolioValuationProvider,
+                                      );
+                                      ref.invalidate(
+                                        deckInventoryMatchProvider,
+                                      );
+                                    },
+                                  ),
                                 ),
-                                action: SnackBarAction(
-                                  label: l10n.undoButton,
-                                  onPressed: () async {
-                                    await ref
-                                        .read(binderRepositoryProvider)
-                                        .restoreItemFromTrash(item.id);
-                                    ref.invalidate(
-                                      binderItemsProvider(binder.id),
-                                    );
-                                    ref.invalidate(trashedItemsProvider);
-                                    ref.invalidate(portfolioValuationProvider);
-                                    ref.invalidate(deckInventoryMatchProvider);
-                                  },
-                                ),
-                              ),
-                            );
+                              );
                           }
                         },
                 ),

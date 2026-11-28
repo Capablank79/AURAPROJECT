@@ -5,6 +5,7 @@ import '../../../core/services/card_text_extractor_service.dart';
 import '../../../core/services/media_storage_service.dart';
 import '../../../core/services/ml_kit_service.dart';
 import '../../../core/utils/image_compressor.dart';
+import '../../binder/providers/binder_providers.dart';
 import '../data/catalog_repository.dart';
 import '../data/http_catalog_repository.dart';
 import '../data/mock_card_strategy_repository.dart';
@@ -35,7 +36,9 @@ final mlKitServiceProvider = Provider<MlKitService>((ref) {
 });
 
 final cardStrategyRepositoryProvider = Provider<CardStrategyRepository>(
-  (ref) => const MockCardStrategyRepository(),
+  (ref) => MockCardStrategyRepository(
+    binderRepository: ref.watch(binderRepositoryProvider),
+  ),
 );
 
 /// Contador diario simulado de análisis Aura AI (máx. 3/día en plan gratuito).
